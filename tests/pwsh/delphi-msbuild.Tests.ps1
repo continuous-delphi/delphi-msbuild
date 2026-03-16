@@ -90,15 +90,17 @@ Describe 'Get-RsvarsPath' {
     . (Get-MsBuildScriptPath)
   }
 
-  It 'produces bin\rsvars.bat under the given rootDir' {
-    $result = Get-RsvarsPath -RootDir 'C:\RAD\Studio\23.0'
-    # Normalise separators so the assertion holds on both Windows and non-Windows runners
-    $result.Replace('/', '\') | Should -Be 'C:\RAD\Studio\23.0\bin\rsvars.bat'
+  It 'produces the rsvars.bat path under the bin subdirectory' {
+    $root   = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), 'fake-delphi', '23.0')
+    $result = Get-RsvarsPath -RootDir $root
+    $result | Should -Be ([System.IO.Path]::Combine($root, 'bin', 'rsvars.bat'))
   }
 
   It 'handles trailing separator in rootDir' {
-    $result = Get-RsvarsPath -RootDir 'C:\RAD\Studio\23.0\'
-    $result.Replace('/', '\') | Should -Be 'C:\RAD\Studio\23.0\bin\rsvars.bat'
+    $root   = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), 'fake-delphi', '23.0')
+    $sep    = [System.IO.Path]::DirectorySeparatorChar
+    $result = Get-RsvarsPath -RootDir "${root}${sep}"
+    $result | Should -Be ([System.IO.Path]::Combine($root, 'bin', 'rsvars.bat'))
   }
 
 }
@@ -341,10 +343,10 @@ Describe 'Main flow -- pre-MSBuild validation (no MSBuild invoked)' {
   Context 'exits 3 when rootDir exists but rsvars.bat is absent' {
 
     BeforeAll {
-      # Use a real directory that exists but certainly has no rsvars.bat
+      # Use a real directory that exists on all platforms but has no rsvars.bat
       $script:result = Invoke-ToolProcess -ScriptPath $script:scriptPath -Arguments @(
         '-ProjectFile', 'C:\Fake\MyApp.dproj',
-        '-RootDir',     $env:TEMP
+        '-RootDir',     ([System.IO.Path]::GetTempPath())
       )
     }
 
@@ -363,7 +365,7 @@ Describe 'Main flow -- pre-MSBuild validation (no MSBuild invoked)' {
     BeforeAll {
       # Create a temporary rsvars.bat so the rootDir check passes, then use a
       # non-existent project file path.
-      $script:tempRoot = Join-Path $env:TEMP 'delphi-msbuild-test'
+      $script:tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'delphi-msbuild-test'
       $script:tempBin  = Join-Path $script:tempRoot 'bin'
       $null = New-Item -ItemType Directory -Path $script:tempBin -Force
       $null = New-Item -ItemType File -Path (Join-Path $script:tempBin 'rsvars.bat') -Force

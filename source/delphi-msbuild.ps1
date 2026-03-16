@@ -87,6 +87,8 @@ $ExitRootDirError     = 3
 $ExitProjectNotFound  = 4
 $ExitBuildFailed      = 5
 
+$script:Version = '0.1.0'
+
 # Resolve the Delphi root dir from the explicit -RootDir parameter or from a
 # piped delphi-inspect result object (.rootDir property).
 # Returns $null when neither source provides a value.
@@ -237,15 +239,16 @@ try {
     -ShowOutput:$ShowOutput
 
   $resultObj = [pscustomobject]@{
-    projectFile = $resolvedProjectFile
-    platform    = $Platform
-    config      = $Config
-    target      = $Target
-    rootDir     = $resolvedRootDir
-    rsvarsPath  = $rsvarsPath
-    exitCode    = $buildResult.ExitCode
-    success     = ($buildResult.ExitCode -eq 0)
-    output      = $buildResult.Output
+    scriptVersion = $script:Version
+    projectFile   = $resolvedProjectFile
+    platform      = $Platform
+    config        = $Config
+    target        = $Target
+    rootDir       = $resolvedRootDir
+    rsvarsPath    = $rsvarsPath
+    exitCode      = $buildResult.ExitCode
+    success       = ($buildResult.ExitCode -eq 0)
+    output        = $buildResult.Output
   }
 
   Write-Output $resultObj

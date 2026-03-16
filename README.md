@@ -1,3 +1,15 @@
+# delphi-msbuild
+
+![delphi-msbuild logo](https://continuous-delphi.github.io/assets/logos/delphi-msbuild-480x270.png)
+
+![Status](https://img.shields.io/badge/status-incubator-orange)
+![License](https://img.shields.io/github/license/continuous-delphi/delphi-inspect.svg)
+![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Delphi](https://img.shields.io/badge/delphi-red)
+![PowerShell](https://img.shields.io/badge/powershell-7.4%2B-blue)
+![Continuous Delphi](https://img.shields.io/badge/org-continuous--delphi-red)
+
+
 # Overview
 
 `delphi-msbuild.ps1` builds a Delphi `.dproj` project using
@@ -317,3 +329,22 @@ Then each `KEY=VALUE` line from `set` is applied to the current PowerShell
 process environment via `[Environment]::SetEnvironmentVariable`.  This
 makes `msbuild.exe` available on `PATH` for the remainder of the session.
 
+## Maturity
+
+This repository is currently `incubator`. Both implementations are under active development.
+It will graduate to `stable` once:
+
+- At least one downstream consumer exists.
+
+Until graduation, breaking changes may occur
+
+![continuous-delphi logo](https://continuous-delphi.github.io/assets/logos/continuous-delphi-480x270.png)
+
+## Part of the Continuous Delphi Organization
+
+This repository follows the Continuous Delphi organization taxonomy. See
+[cd-meta-org](https://github.com/continuous-delphi/cd-meta-org) for navigation and governance.
+
+- `docs/org-taxonomy.md` -- naming and tagging conventions
+- `docs/versioning-policy.md` -- release and versioning rules
+- `docs/repo-lifecycle.md` -- lifecycle states and graduation criteria
