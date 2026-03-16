@@ -78,4 +78,5 @@ jobs:
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
           gh release create "${GITHUB_REF_NAME}" \
             --title "${REPO_NAME} v${VERSION}" \
-            --notes-file release-notes.md
+            --notes-file release-notes.md \
+            source/delphi-msbuild.ps1
