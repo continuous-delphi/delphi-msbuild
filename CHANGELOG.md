@@ -4,11 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.2.0] - 2026-03-16
+
+- Added `delphi-msbuild.ps1` to be a direct download on the release page
+[#5](https://github.com/continuous-delphi/delphi-msbuild/issues/5)
+
 ## [0.1.0] - 2026-03-16
 
 - Initial release of `delphi-msbuild.ps1` -- build Delphi `.dproj` projects
   via MSBuild from the command line, with support for piped output from
   `delphi-inspect` and automatic `rsvars.bat` environment sourcing.
+[#1](https://github.com/continuous-delphi/delphi-msbuild/issues/1)
 
 
 <br />
