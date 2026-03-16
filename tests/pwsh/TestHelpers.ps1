@@ -1,0 +1,54 @@
+# TestHelpers.ps1
+# Shared setup for delphi-msbuild Pester tests.
+#
+# Dot-source this file inside each Describe-level BeforeAll:
+#   BeforeAll {
+#     . "$PSScriptRoot/TestHelpers.ps1"
+#     . (Get-MsBuildScriptPath)
+#   }
+#
+# Provides:
+#   Get-ScriptUnderTestPath  - absolute path to delphi-msbuild.ps1
+#   Get-MsBuildScriptPath    - alias of Get-ScriptUnderTestPath
+#   Invoke-ToolProcess       - runs a .ps1 as a child process and returns
+#                              [pscustomobject]@{ ExitCode; StdOut; StdErr }
+
+function Get-ScriptUnderTestPath {
+  $path = Join-Path $PSScriptRoot '..\..\source\delphi-msbuild.ps1'
+  return [System.IO.Path]::GetFullPath($path)
+}
+
+# Named alias used in delphi-msbuild.Tests.ps1 for readability.
+function Get-MsBuildScriptPath { Get-ScriptUnderTestPath }
+
+function Invoke-ToolProcess {
+  param(
+    [Parameter(Mandatory=$true)][string]$ScriptPath,
+    [Parameter()][string[]]$Arguments = @()
+  )
+
+  $psi = [System.Diagnostics.ProcessStartInfo]::new()
+  $psi.FileName = 'pwsh'
+  foreach ($a in @('-NoProfile', '-NonInteractive', '-File', $ScriptPath) + $Arguments) {
+    [void]$psi.ArgumentList.Add($a)
+  }
+  $psi.RedirectStandardOutput = $true
+  $psi.RedirectStandardError  = $true
+  $psi.UseShellExecute        = $false
+
+  $p = [System.Diagnostics.Process]::new()
+  $p.StartInfo = $psi
+  [void]$p.Start()
+
+  $stdoutTask = $p.StandardOutput.ReadToEndAsync()
+  $stderrTask = $p.StandardError.ReadToEndAsync()
+  $p.WaitForExit()
+  $stdout = $stdoutTask.GetAwaiter().GetResult()
+  $stderr = $stderrTask.GetAwaiter().GetResult()
+
+  [pscustomobject]@{
+    ExitCode = $p.ExitCode
+    StdOut   = ($stdout -split '\r?\n' | Where-Object { $_ -ne '' })
+    StdErr   = ($stderr -split '\r?\n' | Where-Object { $_ -ne '' })
+  }
+}

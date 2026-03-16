@@ -1,0 +1,2 @@
+# PowerShell test output
+tests/pwsh/results/*.xml
