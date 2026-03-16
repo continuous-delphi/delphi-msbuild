@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [Unreleased]
+## [0.1.0] - 2026-03-16
 
 - Initial release of `delphi-msbuild.ps1` -- build Delphi `.dproj` projects
   via MSBuild from the command line, with support for piped output from
