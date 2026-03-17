@@ -115,6 +115,42 @@ The MSBuild verbosity level.  Passed to MSBuild as `/v:<value>`.
 
 Valid values: `quiet`, `minimal`, `normal`, `detailed`, `diagnostic`
 
+## -Define
+
+```text
+-Define <string[]>
+```
+
+One or more additional MSBuild defines to pass to the compiler.  When at least
+one value is supplied, the script appends the following to the MSBuild command
+line:
+
+```text
+/p:DCC_Define="$(DCC_Define);DEFINE1;DEFINE2"
+```
+
+The `$(DCC_Define)` prefix preserves the defines already set by the project's
+PropertyGroups (e.g. `DEBUG`, `RELEASE`).  Without it, the property assignment
+would replace them entirely.
+
+When no `-Define` values are supplied (the default), the `/p:DCC_Define`
+argument is omitted entirely.
+
+Examples:
+
+```powershell
+# Single define
+delphi-msbuild.ps1 -ProjectFile .\src\MyApp.dproj -RootDir $root -Define CI
+
+# Multiple defines
+delphi-msbuild.ps1 -ProjectFile .\src\MyApp.dproj -RootDir $root `
+    -Define MYFLAG, USE_JEDI_JCL
+
+# Via pipeline with defines
+delphi-inspect.ps1 -DetectLatest -Platform Win32 -BuildSystem MSBuild |
+    delphi-msbuild.ps1 -ProjectFile .\src\MyApp.dproj -Define CI, MYFLAG
+```
+
 ## -ShowOutput   (switch)
 
 ```text

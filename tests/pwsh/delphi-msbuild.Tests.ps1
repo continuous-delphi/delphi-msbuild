@@ -26,6 +26,9 @@
     Passes correct MSBuild arguments to Invoke-MsbuildExe.
     Forwards -ShowOutput switch to Invoke-MsbuildExe.
     Returns the result object from Invoke-MsbuildExe.
+    Omits /p:DCC_Define when no defines are supplied.
+    Appends /p:DCC_Define with $(DCC_Define) prefix for a single define.
+    Appends /p:DCC_Define with $(DCC_Define) prefix for multiple defines.
 
   Describe 5 - Main flow (via Invoke-ToolProcess, no MSBuild calls):
     Exits 3 when no rootDir is provided (no pipeline, no -RootDir).
@@ -289,6 +292,78 @@ Describe 'Invoke-MsbuildProject' {
 
     It 'passes /t:Rebuild' {
       $script:capturedArgs | Should -Contain '/t:Rebuild'
+    }
+
+  }
+
+  Context 'omits /p:DCC_Define when no -Define values are supplied' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'Win32' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal'
+    }
+
+    It 'does not include any /p:DCC_Define argument' {
+      $script:capturedArgs | Should -Not -Contain { $_ -like '/p:DCC_Define=*' }
+      ($script:capturedArgs | Where-Object { $_ -like '/p:DCC_Define=*' }) | Should -BeNullOrEmpty
+    }
+
+  }
+
+  Context 'appends /p:DCC_Define with $(DCC_Define) prefix for a single define' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'Win32' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal' `
+        -Define      @('MYFLAG')
+    }
+
+    It 'includes /p:DCC_Define=$(DCC_Define);MYFLAG' {
+      $script:capturedArgs | Should -Contain '/p:DCC_Define=$(DCC_Define);MYFLAG'
+    }
+
+  }
+
+  Context 'appends /p:DCC_Define with $(DCC_Define) prefix for multiple defines' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'Win32' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal' `
+        -Define      @('MYFLAG', 'USE_JEDI_JCL')
+    }
+
+    It 'includes /p:DCC_Define=$(DCC_Define);MYFLAG;USE_JEDI_JCL' {
+      $script:capturedArgs | Should -Contain '/p:DCC_Define=$(DCC_Define);MYFLAG;USE_JEDI_JCL'
     }
 
   }

@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 
 ---
+## [0.3.0] - Unreleased
+
+- Add support for passing compiler defines to MSBUILD
+[#9](https://github.com/continuous-delphi/delphi-msbuild/issues/9)
 
 ## [0.2.0] - 2026-03-16
 
