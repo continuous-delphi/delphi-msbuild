@@ -2,9 +2,9 @@
 
 ![delphi-msbuild logo](https://continuous-delphi.github.io/assets/logos/delphi-msbuild-480x270.png)
 
-[![CI](https://github.com/continuous-delphi/delphi-msbuild/actions/workflows/ci.yml/badge.svg)](https://github.com/continuous-delphi/delphi-msbuild/actions/workflows/ci.yml)
+![CI](https://github.com/continuous-delphi/delphi-msbuild/actions/workflows/ci.yml/badge.svg)
 ![Status](https://img.shields.io/badge/status-incubator-orange)
-![License](https://img.shields.io/github/license/continuous-delphi/delphi-inspect.svg)
+![License](https://img.shields.io/github/license/continuous-delphi/delphi-msbuild.svg)
 ![Delphi](https://img.shields.io/badge/delphi-red)
 ![PowerShell](https://img.shields.io/badge/powershell-blue)
 ![Continuous Delphi](https://img.shields.io/badge/org-continuous--delphi-red)
