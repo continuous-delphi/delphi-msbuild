@@ -14,7 +14,6 @@ All notable changes to this project will be documented in this file.
   already set by the project's PropertyGroups
 [#11](https://github.com/continuous-delphi/delphi-msbuild/issues/11)
 
-
 - Add support for passing compiler defines to MSBUILD
   [#9](https://github.com/continuous-delphi/delphi-msbuild/issues/9)
 
