@@ -160,7 +160,7 @@ function Invoke-MsbuildExe {
   )
 
   if ($ShowOutput) {
-    & msbuild.exe @Arguments
+    & msbuild.exe @Arguments | Out-Host
     return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = $null }
   }
 
