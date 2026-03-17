@@ -2,12 +2,19 @@
 
 ![delphi-msbuild logo](https://continuous-delphi.github.io/assets/logos/delphi-msbuild-480x270.png)
 
+[![CI](https://github.com/continuous-delphi/delphi-msbuild/actions/workflows/ci.yml/badge.svg)](https://github.com/continuous-delphi/delphi-msbuild/actions/workflows/ci.yml)
 ![Status](https://img.shields.io/badge/status-incubator-orange)
 ![License](https://img.shields.io/github/license/continuous-delphi/delphi-inspect.svg)
 ![Delphi](https://img.shields.io/badge/delphi-red)
 ![PowerShell](https://img.shields.io/badge/powershell-7.4%2B-blue)
 ![Continuous Delphi](https://img.shields.io/badge/org-continuous--delphi-red)
 
+Quick-start, or enhance your Delphi build automation with a standalone,
+MIT-licensed, CI-ready build tool from
+[Continuous-Delphi](https://github.com/continuous-delphi) -
+designed for automating builds using MSBuild.
+See [delphi-dccbuild](https://github.com/continuous-delphi/delphi-dccbuild)
+for a similar tool that utilizes the DCC command line compilers.
 
 # Overview
 
@@ -16,21 +23,27 @@ MSBuild.  It sources the Delphi build environment from `rsvars.bat`
 (located under the Delphi installation root) and then invokes MSBuild
 with the requested project file, platform, and configuration.
 
-# Usage
+It is designed to be used standalone by providing the `ProjectFile` path
+and the Delphi `RootDir` (and optionally the Platform and Config settings.)
 
 ```powershell
-pwsh delphi-msbuild.ps1 -ProjectFile <path> [options]
+delphi-msbuild.ps1 `
+  -ProjectFile .\src\MyApp.dpr `
+  -RootDir     'C:\Program Files (x86)\Embarcadero\Studio\23.0' 
 ```
 
-------------------------------------------------------------------------
-
-It is designed to be run stand-alone (using an explicit `-RootDir`
-parameter) or to pipe the output of `delphi-inspect.ps1` which will
-supply the installation root, such as:
+You can also pipe the output from `delphi-inspect.ps1` to automatically
+detect the `RootDir`:
 
 ```powershell
 delphi-inspect.ps1 -DetectLatest -Platform Win32 -BuildSystem MSBuild |
       delphi-msbuild.ps1 -ProjectFile .\src\MyApp.dproj
+```
+
+# Usage
+
+```powershell
+pwsh delphi-msbuild.ps1 -ProjectFile <path> [options]
 ```
 
 # Parameters
