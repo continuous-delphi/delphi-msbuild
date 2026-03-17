@@ -26,6 +26,11 @@
     Passes correct MSBuild arguments to Invoke-MsbuildExe.
     Forwards -ShowOutput switch to Invoke-MsbuildExe.
     Returns the result object from Invoke-MsbuildExe.
+    ExeOutputDir adds /p:DCC_ExeOutput; omitted adds nothing.
+    DcuOutputDir adds /p:DCC_DcuOutput; omitted adds nothing.
+    UnitSearchPath single entry appends with $(DCC_UnitSearchPath) prefix.
+    UnitSearchPath multiple entries joined with semicolons.
+    UnitSearchPath omitted adds no /p:DCC_UnitSearchPath argument.
     Omits /p:DCC_Define when no defines are supplied.
     Appends /p:DCC_Define with $(DCC_Define) prefix for a single define.
     Appends /p:DCC_Define with $(DCC_Define) prefix for multiple defines.
@@ -292,6 +297,171 @@ Describe 'Invoke-MsbuildProject' {
 
     It 'passes /t:Rebuild' {
       $script:capturedArgs | Should -Contain '/t:Rebuild'
+    }
+
+  }
+
+  Context 'ExeOutputDir adds /p:DCC_ExeOutput' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile  'C:\Projects\MyApp.dproj' `
+        -Platform     'Win32' `
+        -Config       'Debug' `
+        -Target       'Build' `
+        -Verbosity    'normal' `
+        -ExeOutputDir 'C:\Build\bin'
+    }
+
+    It 'includes /p:DCC_ExeOutput=C:\Build\bin' {
+      $script:capturedArgs | Should -Contain '/p:DCC_ExeOutput=C:\Build\bin'
+    }
+
+  }
+
+  Context 'ExeOutputDir omitted adds no /p:DCC_ExeOutput argument' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'Win32' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal'
+    }
+
+    It 'no argument contains DCC_ExeOutput' {
+      ($script:capturedArgs | Where-Object { $_ -like '*DCC_ExeOutput*' }) | Should -BeNullOrEmpty
+    }
+
+  }
+
+  Context 'DcuOutputDir adds /p:DCC_DcuOutput' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile  'C:\Projects\MyApp.dproj' `
+        -Platform     'Win32' `
+        -Config       'Debug' `
+        -Target       'Build' `
+        -Verbosity    'normal' `
+        -DcuOutputDir 'C:\Build\dcu'
+    }
+
+    It 'includes /p:DCC_DcuOutput=C:\Build\dcu' {
+      $script:capturedArgs | Should -Contain '/p:DCC_DcuOutput=C:\Build\dcu'
+    }
+
+  }
+
+  Context 'DcuOutputDir omitted adds no /p:DCC_DcuOutput argument' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'Win32' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal'
+    }
+
+    It 'no argument contains DCC_DcuOutput' {
+      ($script:capturedArgs | Where-Object { $_ -like '*DCC_DcuOutput*' }) | Should -BeNullOrEmpty
+    }
+
+  }
+
+  Context 'UnitSearchPath single entry appends with $(DCC_UnitSearchPath) prefix' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile    'C:\Projects\MyApp.dproj' `
+        -Platform       'Win32' `
+        -Config         'Debug' `
+        -Target         'Build' `
+        -Verbosity      'normal' `
+        -UnitSearchPath @('C:\Libs\MyLib')
+    }
+
+    It 'includes /p:DCC_UnitSearchPath=$(DCC_UnitSearchPath);C:\Libs\MyLib' {
+      $script:capturedArgs | Should -Contain '/p:DCC_UnitSearchPath=$(DCC_UnitSearchPath);C:\Libs\MyLib'
+    }
+
+  }
+
+  Context 'UnitSearchPath multiple entries are joined with semicolons' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile    'C:\Projects\MyApp.dproj' `
+        -Platform       'Win32' `
+        -Config         'Debug' `
+        -Target         'Build' `
+        -Verbosity      'normal' `
+        -UnitSearchPath @('C:\Libs\A', 'C:\Libs\B')
+    }
+
+    It 'includes /p:DCC_UnitSearchPath=$(DCC_UnitSearchPath);C:\Libs\A;C:\Libs\B' {
+      $script:capturedArgs | Should -Contain '/p:DCC_UnitSearchPath=$(DCC_UnitSearchPath);C:\Libs\A;C:\Libs\B'
+    }
+
+  }
+
+  Context 'UnitSearchPath omitted adds no /p:DCC_UnitSearchPath argument' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'Win32' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal'
+    }
+
+    It 'no argument contains DCC_UnitSearchPath' {
+      ($script:capturedArgs | Where-Object { $_ -like '*DCC_UnitSearchPath*' }) | Should -BeNullOrEmpty
     }
 
   }

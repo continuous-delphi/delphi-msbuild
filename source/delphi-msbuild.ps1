@@ -74,6 +74,17 @@ param(
   [ValidateSet('quiet','minimal','normal','detailed','diagnostic')]
   [string]$Verbosity = 'normal',
 
+  # Output directory for the compiled executable or DLL (/p:DCC_ExeOutput property).
+  [string]$ExeOutputDir,
+
+  # Output directory for compiled DCU files (/p:DCC_DcuOutput property).
+  [string]$DcuOutputDir,
+
+  # Additional unit search paths (/p:DCC_UnitSearchPath property).  Multiple paths are
+  # joined with semicolons and appended to the paths already set by the project's
+  # PropertyGroups.
+  [string[]]$UnitSearchPath = @(),
+
   [string[]]$Define = @(),
 
   [switch]$ShowOutput
@@ -179,7 +190,10 @@ function Invoke-MsbuildProject {
     [string]$Config,
     [string]$Target,
     [string]$Verbosity,
-    [string[]]$Define = @(),
+    [string]$ExeOutputDir,
+    [string]$DcuOutputDir,
+    [string[]]$UnitSearchPath = @(),
+    [string[]]$Define         = @(),
     [switch]$ShowOutput
   )
 
@@ -190,6 +204,14 @@ function Invoke-MsbuildProject {
     "/p:Platform=$Platform",
     "/v:$Verbosity"
   )
+
+  if (-not [string]::IsNullOrWhiteSpace($ExeOutputDir)) { $msbuildArgs += "/p:DCC_ExeOutput=$ExeOutputDir" }
+  if (-not [string]::IsNullOrWhiteSpace($DcuOutputDir)) { $msbuildArgs += "/p:DCC_DcuOutput=$DcuOutputDir" }
+
+  if ($UnitSearchPath.Count -gt 0) {
+    $unitSearchValue = '$(DCC_UnitSearchPath);' + ($UnitSearchPath -join ';')
+    $msbuildArgs += "/p:DCC_UnitSearchPath=$unitSearchValue"
+  }
 
   if ($Define.Count -gt 0) {
     $defineValue = '$(DCC_Define);' + ($Define -join ';')
@@ -239,25 +261,31 @@ try {
   Invoke-RsvarsEnvironment -RsvarsPath $rsvarsPath
 
   $buildResult = Invoke-MsbuildProject `
-    -ProjectFile  $resolvedProjectFile `
-    -Platform     $Platform `
-    -Config       $Config `
-    -Target       $Target `
-    -Verbosity    $Verbosity `
-    -Define       $Define `
+    -ProjectFile   $resolvedProjectFile `
+    -Platform      $Platform `
+    -Config        $Config `
+    -Target        $Target `
+    -Verbosity     $Verbosity `
+    -ExeOutputDir  $ExeOutputDir `
+    -DcuOutputDir  $DcuOutputDir `
+    -UnitSearchPath $UnitSearchPath `
+    -Define        $Define `
     -ShowOutput:$ShowOutput
 
   $resultObj = [pscustomobject]@{
-    scriptVersion = $script:Version
-    projectFile   = $resolvedProjectFile
-    platform      = $Platform
-    config        = $Config
-    target        = $Target
-    rootDir       = $resolvedRootDir
-    rsvarsPath    = $rsvarsPath
-    exitCode      = $buildResult.ExitCode
-    success       = ($buildResult.ExitCode -eq 0)
-    output        = $buildResult.Output
+    scriptVersion  = $script:Version
+    projectFile    = $resolvedProjectFile
+    platform       = $Platform
+    config         = $Config
+    target         = $Target
+    rootDir        = $resolvedRootDir
+    rsvarsPath     = $rsvarsPath
+    exeOutputDir   = if ([string]::IsNullOrWhiteSpace($ExeOutputDir))  { $null } else { $ExeOutputDir }
+    dcuOutputDir   = if ([string]::IsNullOrWhiteSpace($DcuOutputDir))  { $null } else { $DcuOutputDir }
+    unitSearchPath = if ($UnitSearchPath.Count -eq 0) { $null } else { $UnitSearchPath }
+    exitCode       = $buildResult.ExitCode
+    success        = ($buildResult.ExitCode -eq 0)
+    output         = $buildResult.Output
   }
 
   Write-Output $resultObj

@@ -115,6 +115,59 @@ The MSBuild verbosity level.  Passed to MSBuild as `/v:<value>`.
 
 Valid values: `quiet`, `minimal`, `normal`, `detailed`, `diagnostic`
 
+## -ExeOutputDir
+
+```text
+-ExeOutputDir <path>
+```
+
+Output directory for the compiled executable or library.  Passed to MSBuild as
+`/p:DCC_ExeOutput=<path>`.
+
+When omitted, MSBuild uses the output location defined in the project's
+PropertyGroups.  The result object's `.exeOutputDir` is `$null` when this
+parameter is not supplied.
+
+## -DcuOutputDir
+
+```text
+-DcuOutputDir <path>
+```
+
+Output directory for compiled `.dcu` files.  Passed to MSBuild as
+`/p:DCC_DcuOutput=<path>`.
+
+When omitted, MSBuild uses the DCU location from the project's PropertyGroups.
+The result object's `.dcuOutputDir` is `$null` when this parameter is not
+supplied.
+
+## -UnitSearchPath
+
+```text
+-UnitSearchPath <path[]>
+```
+
+Additional unit search paths appended to the project's existing unit path.
+Accepts an array of path strings.  Multiple paths are joined with semicolons
+and passed as:
+
+```text
+/p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);path1;path2"
+```
+
+The `$(DCC_UnitSearchPath)` prefix preserves the paths already set in the
+project's PropertyGroups.  Without it, the assignment would replace them
+entirely.
+
+When omitted (or an empty array), no `/p:DCC_UnitSearchPath` argument is added.
+The result object's `.unitSearchPath` is `$null` when no paths are supplied.
+
+Example:
+
+```powershell
+-UnitSearchPath @('C:\Libs\A', 'C:\Libs\B')
+```
+
 ## -Define
 
 ```text
@@ -191,17 +244,20 @@ On success or build failure (exit codes 0 and 5), a single
 `pscustomobject` is written to the pipeline before the script exits.
 This allows downstream pipeline steps to consume the build result.
 
-| Property      | Type    | Description                                          |
-|---------------|---------|------------------------------------------------------|
-| `projectFile` | string  | Absolute path to the project file                    |
-| `platform`    | string  | Platform value used (e.g. `Win32`)                   |
-| `config`      | string  | Config value used (e.g. `Debug`)                     |
-| `target`      | string  | Target used (e.g. `Build`)                           |
-| `rootDir`     | string  | Resolved Delphi installation root                    |
-| `rsvarsPath`  | string  | Derived path to `rsvars.bat`                         |
-| `exitCode`    | int     | MSBuild process exit code                            |
-| `success`     | bool    | `$true` when `exitCode` is 0                         |
-| `output`      | string  | Captured MSBuild output; `$null` when `-ShowOutput`  |
+| Property         | Type     | Description                                              |
+|------------------|----------|----------------------------------------------------------|
+| `projectFile`    | string   | Absolute path to the project file                        |
+| `platform`       | string   | Platform value used (e.g. `Win32`)                       |
+| `config`         | string   | Config value used (e.g. `Debug`)                         |
+| `target`         | string   | Target used (e.g. `Build`)                               |
+| `rootDir`        | string   | Resolved Delphi installation root                        |
+| `rsvarsPath`     | string   | Derived path to `rsvars.bat`                             |
+| `exeOutputDir`   | string   | Value of `-ExeOutputDir`; `$null` when not supplied      |
+| `dcuOutputDir`   | string   | Value of `-DcuOutputDir`; `$null` when not supplied      |
+| `unitSearchPath` | string[] | Value of `-UnitSearchPath`; `$null` when not supplied    |
+| `exitCode`       | int      | MSBuild process exit code                                |
+| `success`        | bool     | `$true` when `exitCode` is 0                             |
+| `output`         | string   | Captured MSBuild output; `$null` when `-ShowOutput`      |
 
 Note: On fata errors before MSBuild is invoked (exit codes 2, 3, 4) no result
 object is emitted.
