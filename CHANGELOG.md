@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [0.4.0] - Unreleased
+## [0.4.0] - 2026-03-17
 
 - Ensure `PowerShell 5.1` compatibility for the delphi-msbuild.ps1 script
   (Tests remain the newer `pwsh`)  
