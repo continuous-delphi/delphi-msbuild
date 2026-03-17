@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ---
-## [0.3.0] - Unreleased
+## [0.3.0] - 2026-03-16
 
 - Add `-ExeOutputDir` parameter to set the compiled executable output directory
   via `/p:DCC_ExeOutput`
