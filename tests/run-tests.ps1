@@ -1,4 +1,9 @@
 # tests/run-tests.ps1
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+  Write-Error "Tests require PowerShell 7+."
+  exit 1
+}
+
 if ($IsWindows) {
   Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
 }
