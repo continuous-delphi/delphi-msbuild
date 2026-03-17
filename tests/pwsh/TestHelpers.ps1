@@ -12,6 +12,8 @@
 #   Get-MsBuildScriptPath    - alias of Get-ScriptUnderTestPath
 #   Invoke-ToolProcess       - runs a .ps1 as a child process and returns
 #                              [pscustomobject]@{ ExitCode; StdOut; StdErr }
+#                              Optional -Shell parameter selects the host
+#                              executable (default: 'pwsh').
 
 function Get-ScriptUnderTestPath {
   $path = Join-Path $PSScriptRoot '..\..\source\delphi-msbuild.ps1'
@@ -24,12 +26,18 @@ function Get-MsBuildScriptPath { Get-ScriptUnderTestPath }
 function Invoke-ToolProcess {
   param(
     [Parameter(Mandatory=$true)][string]$ScriptPath,
-    [Parameter()][string[]]$Arguments = @()
+    [Parameter()][string[]]$Arguments = @(),
+    [Parameter()][string]$Shell = 'pwsh',
+    [Parameter()][string]$ExecutionPolicy = ''
   )
 
+  $shellArgs = @('-NoProfile', '-NonInteractive')
+  if ($ExecutionPolicy) { $shellArgs += @('-ExecutionPolicy', $ExecutionPolicy) }
+  $shellArgs += @('-File', $ScriptPath)
+
   $psi = [System.Diagnostics.ProcessStartInfo]::new()
-  $psi.FileName = 'pwsh'
-  foreach ($a in @('-NoProfile', '-NonInteractive', '-File', $ScriptPath) + $Arguments) {
+  $psi.FileName = $Shell
+  foreach ($a in $shellArgs + $Arguments) {
     [void]$psi.ArgumentList.Add($a)
   }
   $psi.RedirectStandardOutput = $true

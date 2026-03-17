@@ -128,7 +128,7 @@ function Resolve-RootDir {
 # Derive the expected rsvars.bat path from the Delphi root dir.
 function Get-RsvarsPath {
   param([string]$RootDir)
-  return Join-Path -Path $RootDir -ChildPath 'bin' -AdditionalChildPath 'rsvars.bat'
+  return Join-Path (Join-Path $RootDir 'bin') 'rsvars.bat'
 }
 
 # Invoke cmd.exe to source rsvars.bat and capture the resulting environment.

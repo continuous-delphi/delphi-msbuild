@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 
 ---
+
+## [0.4.0] - Unreleased
+
+- Ensure `PowerShell 5.1` compatibility for the delphi-msbuild.ps1 script
+  (Tests remain the newer `pwsh`)  
+  [#13](https://github.com/continuous-delphi/delphi-msbuild/issues/13)
+  
 ## [0.3.0] - 2026-03-16
 
 - Add `-ExeOutputDir` parameter to set the compiled executable output directory
