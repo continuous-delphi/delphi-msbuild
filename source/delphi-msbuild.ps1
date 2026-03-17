@@ -74,6 +74,8 @@ param(
   [ValidateSet('quiet','minimal','normal','detailed','diagnostic')]
   [string]$Verbosity = 'normal',
 
+  [string[]]$Define = @(),
+
   [switch]$ShowOutput
 )
 
@@ -177,6 +179,7 @@ function Invoke-MsbuildProject {
     [string]$Config,
     [string]$Target,
     [string]$Verbosity,
+    [string[]]$Define = @(),
     [switch]$ShowOutput
   )
 
@@ -187,6 +190,11 @@ function Invoke-MsbuildProject {
     "/p:Platform=$Platform",
     "/v:$Verbosity"
   )
+
+  if ($Define.Count -gt 0) {
+    $defineValue = '$(DCC_Define);' + ($Define -join ';')
+    $msbuildArgs += "/p:DCC_Define=$defineValue"
+  }
 
   return Invoke-MsbuildExe -Arguments $msbuildArgs -ShowOutput:$ShowOutput
 }
@@ -236,6 +244,7 @@ try {
     -Config       $Config `
     -Target       $Target `
     -Verbosity    $Verbosity `
+    -Define       $Define `
     -ShowOutput:$ShowOutput
 
   $resultObj = [pscustomobject]@{
