@@ -328,6 +328,27 @@ Then each `KEY=VALUE` line from `set` is applied to the current PowerShell
 process environment via `[Environment]::SetEnvironmentVariable`.  This
 makes `msbuild.exe` available on `PATH` for the remainder of the session.
 
+
+# Comparison with delphi-dccbuild.ps1
+
+| Aspect               | delphi-dccbuild.ps1          | delphi-msbuild.ps1              |
+|----------------------|------------------------------|---------------------------------|
+| Project file type    | `.dpr`                       | `.dproj`                        |
+| Build system         | `dcc*.exe`                   | `msbuild.exe`                   |
+| Environment setup    | Sources `rsvars.bat`         | Sources `rsvars.bat`            |
+| Config parameter     | Added as define (`-DDEBUG`)  | Passed as `/p:Config=Debug`     |
+| Target: Rebuild      | `-B` flag                    | `/t:Rebuild`                    |
+| Target: Clean        | Not available                | `/t:Clean`                      |
+| Verbosity options    | `quiet`, `normal`            | `quiet` through `diagnostic`    |
+| Result `rsvarsPath`  | Present                      | Present                         |
+| Result `compilerPath`| Present                      | Not present                     |
+| Inspect -BuildSystem | `DCC`                        | `MSBuild`                       |
+
+Both scripts use the same `-RootDir` parameter and accept the same
+pipeline object shape (`.rootDir` property), so the same
+`delphi-inspect.ps1 -DetectLatest` result object works with either.
+
+
 ## Maturity
 
 This repository is currently `incubator`. Both implementations are under active development.
