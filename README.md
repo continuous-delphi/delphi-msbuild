@@ -2,12 +2,12 @@
 
 ![delphi-msbuild logo](https://continuous-delphi.github.io/assets/logos/delphi-msbuild-480x270.png)
 
-![CI](https://github.com/continuous-delphi/delphi-msbuild/actions/workflows/ci.yml/badge.svg)
-![Status](https://img.shields.io/badge/status-incubator-orange)
-![License](https://img.shields.io/github/license/continuous-delphi/delphi-msbuild.svg)
-![Delphi](https://img.shields.io/badge/delphi-red)
-![PowerShell](https://img.shields.io/badge/powershell-blue)
-![Continuous Delphi](https://img.shields.io/badge/org-continuous--delphi-red)
+[![Delphi](https://img.shields.io/badge/delphi-red)](https://www.embarcadero.com/products/delphi)
+[![CI](https://github.com/continuous-delphi/delphi-msbuild/actions/workflows/ci.yml/badge.svg)](https://github.com/continuous-delphi/delphi-msbuild/actions/workflows/ci.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/continuous-delphi/delphi-msbuild?display_name=release)](https://github.com/continuous-delphi/delphi-msbuild/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/continuous-delphi/delphi-msbuild)
+[![Continuous Delphi](https://img.shields.io/badge/org-continuous--delphi-red)](https://github.com/continuous-delphi)
 
 Quick-start, or enhance your Delphi build automation with a standalone,
 MIT-licensed, CI-ready build tool from
