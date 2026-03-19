@@ -213,9 +213,14 @@ function Invoke-MsbuildProject {
     $msbuildArgs += "/p:DCC_UnitSearchPath=$unitSearchValue"
   }
 
+  if ($UnitSearchPath.Count -gt 0) {
+    $unitSearchValue = '$(DCC_UnitSearchPath);' + ($UnitSearchPath -join ';')
+    $msbuildArgs += "/p:DCC_UnitSearchPath=`"$unitSearchValue`""
+  }
+
   if ($Define.Count -gt 0) {
     $defineValue = '$(DCC_Define);' + ($Define -join ';')
-    $msbuildArgs += "/p:DCC_Define=$defineValue"
+    $msbuildArgs += "/p:DCC_Define=`"$defineValue`""
   }
 
   return Invoke-MsbuildExe -Arguments $msbuildArgs -ShowOutput:$ShowOutput

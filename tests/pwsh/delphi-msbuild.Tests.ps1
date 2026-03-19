@@ -508,8 +508,8 @@ Describe 'Invoke-MsbuildProject' {
         -Define      @('MYFLAG')
     }
 
-    It 'includes /p:DCC_Define=$(DCC_Define);MYFLAG' {
-      $script:capturedArgs | Should -Contain '/p:DCC_Define=$(DCC_Define);MYFLAG'
+    It 'includes /p:DCC_Define="$(DCC_Define);MYFLAG"' {
+      $script:capturedArgs | Should -Contain '/p:DCC_Define="$(DCC_Define);MYFLAG"'
     }
 
   }
@@ -532,8 +532,8 @@ Describe 'Invoke-MsbuildProject' {
         -Define      @('MYFLAG', 'USE_JEDI_JCL')
     }
 
-    It 'includes /p:DCC_Define=$(DCC_Define);MYFLAG;USE_JEDI_JCL' {
-      $script:capturedArgs | Should -Contain '/p:DCC_Define=$(DCC_Define);MYFLAG;USE_JEDI_JCL'
+    It 'includes /p:DCC_Define="$(DCC_Define);MYFLAG;USE_JEDI_JCL"' {
+      $script:capturedArgs | Should -Contain '/p:DCC_Define="$(DCC_Define);MYFLAG;USE_JEDI_JCL"'
     }
 
   }
