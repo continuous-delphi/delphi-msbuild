@@ -4,9 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [0.5.0] - Unreleased
+## [0.5.0] - 2026-03-19
 
-- Define parameter broken - MSBuild thinks it's a switch
+- `-Define` parameter broken - MSBuild thinks it's a switch
   [#16](https://github.com/continuous-delphi/delphi-msbuild/issues/16)
   
 ## [0.4.0] - 2026-03-17
