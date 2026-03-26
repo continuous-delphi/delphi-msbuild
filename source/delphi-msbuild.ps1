@@ -283,6 +283,7 @@ try {
     platform       = $Platform
     config         = $Config
     target         = $Target
+    define         = $Define
     rootDir        = $resolvedRootDir
     rsvarsPath     = $rsvarsPath
     exeOutputDir   = if ([string]::IsNullOrWhiteSpace($ExeOutputDir))  { $null } else { $ExeOutputDir }
