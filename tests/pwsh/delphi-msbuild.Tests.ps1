@@ -413,8 +413,8 @@ Describe 'Invoke-MsbuildProject' {
         -UnitSearchPath @('C:\Libs\MyLib')
     }
 
-    It 'includes /p:DCC_UnitSearchPath=$(DCC_UnitSearchPath);C:\Libs\MyLib' {
-      $script:capturedArgs | Should -Contain '/p:DCC_UnitSearchPath=$(DCC_UnitSearchPath);C:\Libs\MyLib'
+    It 'includes /p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);C:\Libs\MyLib"' {
+      $script:capturedArgs | Should -Contain '/p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);C:\Libs\MyLib"'
     }
 
   }
@@ -437,8 +437,8 @@ Describe 'Invoke-MsbuildProject' {
         -UnitSearchPath @('C:\Libs\A', 'C:\Libs\B')
     }
 
-    It 'includes /p:DCC_UnitSearchPath=$(DCC_UnitSearchPath);C:\Libs\A;C:\Libs\B' {
-      $script:capturedArgs | Should -Contain '/p:DCC_UnitSearchPath=$(DCC_UnitSearchPath);C:\Libs\A;C:\Libs\B'
+    It 'includes /p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);C:\Libs\A;C:\Libs\B"' {
+      $script:capturedArgs | Should -Contain '/p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);C:\Libs\A;C:\Libs\B"'
     }
 
   }
