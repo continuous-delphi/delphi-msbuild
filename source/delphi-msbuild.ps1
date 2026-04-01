@@ -53,6 +53,8 @@ NOTES
   Justification='Script accepts at most one piped installation object; end-block semantics are correct.')]
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', 'Get-RsvarsEnvLines',
   Justification='Function returns multiple KEY=VALUE lines from cmd.exe set; plural noun is accurate.')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '',
+  Justification='Write-Host is intentional: -ShowOutput streams build text directly to the console host.')]
 param(
   [Parameter(ValueFromPipeline=$true)]
   [psobject]$DelphiInstallation,
@@ -222,7 +224,7 @@ function Invoke-MsbuildProject {
 # the exe output dir (-E flag) and DCU output dir (-NO flag).
 # Paths are resolved to absolute using the project file directory as base.
 # Returns [pscustomobject]@{ ExeOutputDir; DcuOutputDir } -- either may be $null.
-function Get-BuildOutputDirs {
+function Get-BuildOutputDir {
   param(
     [string]$Output,
     [string]$ProjectFileDir
@@ -252,7 +254,7 @@ function Get-BuildOutputDirs {
 # Parse the MSBuild summary block from captured output and return warning and
 # error counts as integers.
 # Returns [pscustomobject]@{ Warnings; Errors }.
-function Get-BuildCounts {
+function Get-BuildCount {
   param([string]$Output)
 
   $warnings = 0
@@ -319,10 +321,10 @@ try {
     -Define        $Define `
     -ShowOutput:$ShowOutput
 
-  $parsedDirs = Get-BuildOutputDirs `
+  $parsedDirs = Get-BuildOutputDir `
     -Output         $buildResult.Output `
     -ProjectFileDir (Split-Path $resolvedProjectFile -Parent)
-  $counts = Get-BuildCounts -Output $buildResult.Output
+  $counts = Get-BuildCount -Output $buildResult.Output
 
   $resultObj = [pscustomobject]@{
     scriptVersion  = $script:Version
