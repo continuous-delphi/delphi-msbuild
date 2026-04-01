@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.6.0] - 2026-04-01
+
+- `.output` is now always populated in the result object -- previously it was
+  `$null` when `-ShowOutput` was used; output is now captured and streamed
+- `.exeOutputDir` and `.dcuOutputDir` are now resolved from the dcc32 compiler
+  invocation in the build output when not supplied as parameters
+- `.warnings` and `.errors` integer counts added to the result object, parsed
+  from the MSBuild summary line
+- Fix: duplicate `/p:DCC_UnitSearchPath` argument when `-UnitSearchPath` was
+  supplied (the unquoted copy was appended first, then the quoted copy)
+
 ## [0.5.0] - 2026-03-19
 
 - `-Define` parameter broken - MSBuild thinks it's a switch
