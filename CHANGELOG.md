@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.7.0] Unreleased
+
+- Change order of pscustomobject to display `output` first so the user doesn't have
+to scroll to see the rest of the result fields
+
 ## [0.6.0] - 2026-04-01
 
 - `.output` is now always populated in the result object -- previously it was
