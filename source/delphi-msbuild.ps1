@@ -34,8 +34,8 @@ NOTES
   are Debug and Release.
 
   MSBuild output is always captured and returned in the result object's
-  .output property.  Use -ShowOutput to also stream output to stdout in real
-  time; .output is populated in both cases.
+  .output property.  Use -ShowOutput to also stream output to the console in
+  real time; .output is populated in both cases.
 
   Exit codes:
     0  success
@@ -65,7 +65,7 @@ param(
   [string]$RootDir,
 
   [ValidateSet('Win32','Win64','macOS32','macOS64','macOSARM64','Linux64',
-               'iOS32','iOSSimulator32','iOS64','iOSSimulator64','Android32','Android64')]
+               'iOS32','iOSSimulator32','iOS64','iOSSimulator64','Android32','Android64','WinARM64EC')]
   [string]$Platform = 'Win32',
 
   [string]$Config = 'Debug',
@@ -178,8 +178,8 @@ function Invoke-RsvarsEnvironment {
 
 # Invoke msbuild.exe with the given arguments.
 # Returns [pscustomobject]@{ ExitCode; Output } where Output is always the
-# captured build text.  When -ShowOutput is set the text is also written to
-# the host so the caller sees it in real time.
+# captured build text.  When -ShowOutput is set each output line is also
+# written to the host as MSBuild emits it.
 # Separated into its own function so tests can mock it.
 function Invoke-MsbuildExe {
   param(
@@ -187,9 +187,18 @@ function Invoke-MsbuildExe {
     [switch]$ShowOutput
   )
 
-  $output = & msbuild.exe @Arguments 2>&1 | Out-String
-  if ($ShowOutput) { Write-Host $output }
-  return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = $output }
+  $outputLines = New-Object System.Collections.Generic.List[string]
+  & msbuild.exe @Arguments 2>&1 | ForEach-Object {
+    $line = [string]$_
+    [void]$outputLines.Add($line)
+    if ($ShowOutput) { Write-Host $line }
+  }
+  $exitCode = $LASTEXITCODE
+  $output = $outputLines -join [Environment]::NewLine
+  if ($outputLines.Count -gt 0) {
+    $output += [Environment]::NewLine
+  }
+  return [pscustomobject]@{ ExitCode = $exitCode; Output = $output }
 }
 
 # Assemble MSBuild arguments and invoke the build.

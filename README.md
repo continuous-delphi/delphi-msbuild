@@ -28,7 +28,7 @@ and the Delphi `RootDir` (and optionally the Platform and Config settings.)
 
 ```powershell
 delphi-msbuild.ps1 `
-  -ProjectFile .\src\MyApp.dpr `
+  -ProjectFile .\src\MyApp.dproj `
   -RootDir     'C:\Program Files (x86)\Embarcadero\Studio\23.0' 
 ```
 
@@ -104,6 +104,7 @@ Valid values:
 - `iOSSimulator64`
 - `Android32`
 - `Android64`
+- `WinARM64EC`
 
 ## -Config
 
@@ -232,8 +233,8 @@ delphi-inspect.ps1 -DetectLatest -Platform Win32 -BuildSystem MSBuild |
 
 When set (meant for non-object pipeline usage)
 
-- MSBuild output streams directly to stdout in real time.
-- The result object's `.output` property is `null`.
+- MSBuild output streams to the console in real time.
+- The result object's `.output` property still contains the full captured text.
 - On build failure, a `Write-Error` message is emitted to stderr.
 
 When not set (default):
@@ -277,9 +278,9 @@ This allows downstream pipeline steps to consume the build result.
 | `unitSearchPath` | string[] | Value of `-UnitSearchPath`; `$null` when not supplied    |
 | `exitCode`       | int      | MSBuild process exit code                                |
 | `success`        | bool     | `$true` when `exitCode` is 0                             |
-| `output`         | string   | Captured MSBuild output; `$null` when `-ShowOutput`      |
+| `output`         | string   | Captured MSBuild output                                  |
 
-Note: On fata errors before MSBuild is invoked (exit codes 2, 3, 4) no result
+Note: On fatal errors before MSBuild is invoked (exit codes 2, 3, 4) no result
 object is emitted.
 
 ------------------------------------------------------------------------
@@ -339,8 +340,8 @@ delphi-inspect.ps1 -DetectLatest -Platform Win32 -BuildSystem MSBuild |
   delphi-msbuild.ps1 -ProjectFile .\src\MyApp.dproj -ShowOutput
 ```
 
-MSBuild output appears on stdout as it runs.  `$result.output` is
-`$null` in this mode.
+MSBuild output appears in the console as it runs.  `$result.output` is still
+populated in this mode.
 
 ## Example 4) Normal -- feed result into a downstream step
 
@@ -411,9 +412,9 @@ $result.output     # captured MSBuild output containing error diagnostics
 ```
 
 Inspect `$result.output` to see the MSBuild error lines.  When
-`-ShowOutput` is used, the output has already streamed to console and
-`$result.output` is `$null`; a `Write-Error` message is emitted to
-stderr instead.
+`-ShowOutput` is used, the output has already streamed to the console and
+is still available in `$result.output`; a `Write-Error` message is emitted
+to stderr as well.
 
 ------------------------------------------------------------------------
 

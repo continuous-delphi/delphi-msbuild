@@ -24,6 +24,7 @@
 
   Describe 4 - Invoke-MsbuildProject:
     Passes correct MSBuild arguments to Invoke-MsbuildExe.
+    Passes WinARM64EC platform through to MSBuild arguments.
     Forwards -ShowOutput switch to Invoke-MsbuildExe.
     Returns the result object from Invoke-MsbuildExe.
     ExeOutputDir adds /p:DCC_ExeOutput; omitted adds nothing.
@@ -250,6 +251,29 @@ Describe 'Invoke-MsbuildProject' {
 
     It 'passes ShowOutput=$true to Invoke-MsbuildExe' {
       $script:capturedShowOutput | Should -Be $true
+    }
+
+  }
+
+  Context 'WinARM64EC platform is passed correctly' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'WinARM64EC' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal'
+    }
+
+    It 'passes /p:Platform=WinARM64EC' {
+      $script:capturedArgs | Should -Contain '/p:Platform=WinARM64EC'
     }
 
   }
@@ -561,6 +585,25 @@ Describe 'Main flow -- pre-MSBuild validation (no MSBuild invoked)' {
     }
 
     It 'stderr contains helpful message' {
+      $script:result.StdErr -join ' ' | Should -Match 'root dir'
+    }
+
+  }
+
+  Context 'accepts WinARM64EC before pre-MSBuild validation' {
+
+    BeforeAll {
+      $script:result = Invoke-ToolProcess -ScriptPath $script:scriptPath -Arguments @(
+        '-ProjectFile', 'C:\Fake\MyApp.dproj',
+        '-Platform',    'WinARM64EC'
+      )
+    }
+
+    It 'continues past parameter binding and exits 3 for missing rootDir' {
+      $script:result.ExitCode | Should -Be 3
+    }
+
+    It 'stderr contains the missing rootDir message' {
       $script:result.StdErr -join ' ' | Should -Match 'root dir'
     }
 

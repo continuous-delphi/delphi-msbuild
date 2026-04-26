@@ -8,6 +8,11 @@ All notable changes to this project will be documented in this file.
 
 - Change order of pscustomobject to display `output` first so the user doesn't have
 to scroll to see the rest of the result fields
+- Add `WinARM64EC` as a valid MSBuild platform value, with test coverage for
+  passing it through to `/p:Platform=WinARM64EC`
+- Fix `-ShowOutput` so MSBuild output is streamed line-by-line while still
+  being captured in the result object's `.output` property
+
 
 ## [0.6.0] - 2026-04-01
 
