@@ -114,7 +114,7 @@ $ExitRootDirError     = 3
 $ExitProjectNotFound  = 4
 $ExitBuildFailed      = 5
 
-$script:Version = '0.7.0'
+$script:Version = '1.0.0'
 $ToolVersion = $script:Version
 
 # BEGIN-CD-HOSTLOG

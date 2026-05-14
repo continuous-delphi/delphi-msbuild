@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.0.0] Unreleased
+## [1.0.0] 2026-05-14
 
 - Support for `delphi-logger` added (opt-in structural logging for debug
 purposes.) [#19](https://github.com/continuous-delphi/delphi-msbuild/issues/19)

@@ -461,16 +461,6 @@ Both scripts use the same `-RootDir` parameter and accept the same
 pipeline object shape (`.rootDir` property), so the same
 `delphi-inspect.ps1 -DetectLatest` result object works with either.
 
-
-## Maturity
-
-This repository is currently `incubator`. Both implementations are under active development.
-It will graduate to `stable` once:
-
-- At least one downstream consumer exists.
-
-Until graduation, breaking changes may occur
-
 ![continuous-delphi logo](https://continuous-delphi.github.io/assets/logos/continuous-delphi-480x270.png)
 
 ## Part of the Continuous Delphi Organization
