@@ -115,6 +115,97 @@ $ExitProjectNotFound  = 4
 $ExitBuildFailed      = 5
 
 $script:Version = '0.7.0'
+$ToolVersion = $script:Version
+
+# BEGIN-CD-HOSTLOG
+# -----------------------------------------------------------------------------
+# Write-CDHostLog v0.1.0
+# Source: https://github.com/continuous-delphi/delphi-logger
+#
+# Universal output function for Continuous-Delphi PowerShell tooling.
+# Opt-in structured logging via ContinuousDelphi.Logger module.
+# See: https://github.com/continuous-delphi/delphi-logger/docs/output-modes.md
+# -----------------------------------------------------------------------------
+
+# Logger detection -- check once at load time whether the caller has loaded
+# ContinuousDelphi.Logger. If so, structured events are emitted alongside
+# native PowerShell stream output. If not, Write-CDHostLog routes to native
+# Write-Output / Write-Verbose / Write-Host / Write-Warning / Write-Error only.
+$script:LoggerAvailable = [bool](Get-Module -Name 'ContinuousDelphi.Logger')
+$script:LoggerCaptureOutput = if ($script:LoggerAvailable) {
+  $script:CDLoggerState = (Get-Module -Name 'ContinuousDelphi.Logger').SessionState.PSVariable.GetValue('CDLoggerState')
+  if ($null -ne $script:CDLoggerState) { $script:CDLoggerState.CaptureOutput } else { $false }
+} else { $false }
+
+function Write-CDHostLog {
+  [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '',
+    Justification='Write-Host is used intentionally for Info/Success level output to stream 6 without polluting the pipeline')]
+  param(
+    [Parameter(Mandatory)]
+    $Message,
+
+    [ValidateSet('Output','Trace','Debug','Verbose','Info','Success','Warning','Error','Fatal')]
+    [string]$Level = 'Info',
+
+    [string]$EventId,
+    [hashtable]$Data,
+
+    [switch]$LogOnly
+  )
+
+  # Write to native PowerShell stream (unless LogOnly)
+  if (-not $LogOnly) {
+    switch ($Level) {
+      'Output' {
+        Write-Output $Message
+      }
+      { $_ -in 'Trace','Debug','Verbose' } {
+        Write-Verbose $Message
+      }
+      { $_ -in 'Info','Success' } {
+        Write-Host $Message
+      }
+      'Warning' {
+        Write-Warning $Message
+      }
+      { $_ -in 'Error','Fatal' } {
+        Write-Error $Message -ErrorAction Continue
+      }
+    }
+  }
+
+  # Also emit structured log event if logger available
+  if ($script:LoggerAvailable) {
+    $msgStr = [string]$Message
+    if ([string]::IsNullOrWhiteSpace($msgStr)) { return }
+    if ($Level -eq 'Output') {
+      if (-not $script:LoggerCaptureOutput) { return }
+      $logLevel = 'Info'
+    } else {
+      $logLevel = $Level
+    }
+    $params = @{ Level = $logLevel; Message = $msgStr }
+    if ($EventId) { $params.EventId = $EventId }
+    if ($Data)    { $params.Data = $Data }
+    Write-CDLogEvent @params
+  }
+}
+
+function Complete-CDActivity {
+  param(
+    [int]$ExitCode,
+    [string]$Command,
+    [string]$Message
+  )
+  if (-not $script:LoggerAvailable) { return }
+  $result = New-CDActivityResult `
+    -ToolVersion $ToolVersion `
+    -Activity $Command `
+    -ExitCode $ExitCode `
+    -Message $Message
+  Write-Information -MessageData $result -Tags @('CDLog', 'ActivityResult')
+}
+# END-CD-HOSTLOG
 
 # Resolve the Delphi root dir from the explicit -RootDir parameter or from a
 # piped delphi-inspect result object (.rootDir property).
@@ -191,7 +282,7 @@ function Invoke-MsbuildExe {
   & msbuild.exe @Arguments 2>&1 | ForEach-Object {
     $line = [string]$_
     [void]$outputLines.Add($line)
-    if ($ShowOutput) { Write-Host $line }
+    if ($ShowOutput) { Write-CDHostLog -Level Info -Message $line }
   }
   $exitCode = $LASTEXITCODE
   $output = $outputLines -join [Environment]::NewLine
@@ -297,35 +388,45 @@ if ($MyInvocation.InvocationName -eq '.') { return }
 
 try {
   if ([string]::IsNullOrWhiteSpace($ProjectFile)) {
-    Write-Error '-ProjectFile is required.' -ErrorAction Continue
+    Write-CDHostLog -Level Error -Message '-ProjectFile is required.' -EventId 'INVALID-ARGS'
+    Complete-CDActivity -ExitCode $ExitInvalidArguments -Command 'build' -Message 'ProjectFile is required'
     exit $ExitInvalidArguments
   }
 
   $resolvedRootDir = Resolve-RootDir -ExplicitRootDir $RootDir -Installation $DelphiInstallation
+  Write-CDHostLog -Level Verbose -Message "Project: $ProjectFile, Platform: $Platform, Config: $Config, Target: $Target"
 
   if ([string]::IsNullOrWhiteSpace($resolvedRootDir)) {
     $msg = 'No Delphi root dir supplied. Provide -RootDir or pipe a delphi-inspect result object.'
-    if ($ShowOutput) { Write-Error $msg -ErrorAction Continue } else { Write-Error $msg -ErrorAction Continue }
+    Write-CDHostLog -Level Error -Message $msg -EventId 'ROOTDIR-MISSING'
+    Complete-CDActivity -ExitCode $ExitRootDirError -Command 'build' -Message $msg
     exit $ExitRootDirError
   }
 
+  Write-CDHostLog -Level Verbose -Message "RootDir: $resolvedRootDir"
+
   if (-not (Test-Path -LiteralPath $resolvedRootDir)) {
     $msg = "Delphi root dir not found on disk: $resolvedRootDir"
-    Write-Error $msg -ErrorAction Continue
+    Write-CDHostLog -Level Error -Message $msg -EventId 'ROOTDIR-NOT-FOUND'
+    Complete-CDActivity -ExitCode $ExitRootDirError -Command 'build' -Message $msg
     exit $ExitRootDirError
   }
 
   $rsvarsPath = Get-RsvarsPath -RootDir $resolvedRootDir
   if (-not (Test-Path -LiteralPath $rsvarsPath)) {
     $msg = "rsvars.bat not found: $rsvarsPath"
-    Write-Error $msg -ErrorAction Continue
+    Write-CDHostLog -Level Error -Message $msg -EventId 'RSVARS-NOT-FOUND'
+    Complete-CDActivity -ExitCode $ExitRootDirError -Command 'build' -Message $msg
     exit $ExitRootDirError
   }
+
+  Write-CDHostLog -Level Verbose -Message "rsvars.bat: $rsvarsPath"
 
   $resolvedProjectFile = [System.IO.Path]::GetFullPath($ProjectFile)
   if (-not (Test-Path -LiteralPath $resolvedProjectFile)) {
     $msg = "Project file not found: $resolvedProjectFile"
-    Write-Error $msg -ErrorAction Continue
+    Write-CDHostLog -Level Error -Message $msg -EventId 'PROJECT-NOT-FOUND'
+    Complete-CDActivity -ExitCode $ExitProjectNotFound -Command 'build' -Message $msg
     exit $ExitProjectNotFound
   }
 
@@ -372,21 +473,26 @@ try {
   }
 
   if ($Format -eq 'json') {
-    Write-Output ($resultObj | ConvertTo-Json -Depth 5 -Compress)
+    Write-CDHostLog -Level Output -Message ($resultObj | ConvertTo-Json -Depth 5 -Compress)
   } else {
-    Write-Output $resultObj
+    Write-CDHostLog -Level Output -Message $resultObj
   }
 
   if ($buildResult.ExitCode -ne 0) {
-    if ($ShowOutput) {
-      Write-Error "MSBuild failed with exit code $($buildResult.ExitCode)" -ErrorAction Continue
-    }
+    Write-CDHostLog -Level Error -Message "MSBuild failed with exit code $($buildResult.ExitCode)" -EventId 'BUILD-FAILED' `
+      -Data @{ exitCode = $buildResult.ExitCode; warnings = $counts.Warnings; errors = $counts.Errors }
+    Complete-CDActivity -ExitCode $ExitBuildFailed -Command 'build' -Message "MSBuild failed with exit code $($buildResult.ExitCode)"
     exit $ExitBuildFailed
   }
 
+  Write-CDHostLog -Level Verbose -Message "Build succeeded: $($counts.Warnings) warning(s), $($counts.Errors) error(s)"
+  Complete-CDActivity -ExitCode $ExitSuccess -Command 'build'
   exit $ExitSuccess
 
 } catch {
-  Write-Error $_.Exception.Message -ErrorAction Continue
+  $errMsg = if ([string]::IsNullOrWhiteSpace($_.Exception.Message)) { $_.ToString() } else { $_.Exception.Message }
+  if ([string]::IsNullOrWhiteSpace($errMsg)) { $errMsg = 'Unknown error' }
+  Write-CDHostLog -Level Fatal -Message $errMsg -EventId 'UNEXPECTED-ERROR'
+  Complete-CDActivity -ExitCode $ExitUnexpectedError -Command 'build' -Message $errMsg
   exit $ExitUnexpectedError
 }
