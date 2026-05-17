@@ -267,10 +267,13 @@ This allows downstream pipeline steps to consume the build result.
 
 | Property         | Type     | Description                                              |
 |------------------|----------|----------------------------------------------------------|
+| `output`         | string   | Captured MSBuild output                                  |
+| `scriptVersion`  | string   | Version of `delphi-msbuild.ps1`                          |
 | `projectFile`    | string   | Absolute path to the project file                        |
 | `platform`       | string   | Platform value used (e.g. `Win32`)                       |
 | `config`         | string   | Config value used (e.g. `Debug`)                         |
 | `target`         | string   | Target used (e.g. `Build`)                               |
+| `define`         | string[] | Values passed via `-Define`; empty array when not supplied|
 | `rootDir`        | string   | Resolved Delphi installation root                        |
 | `rsvarsPath`     | string   | Derived path to `rsvars.bat`                             |
 | `exeOutputDir`   | string   | Value of `-ExeOutputDir`; `$null` when not supplied      |
@@ -278,7 +281,8 @@ This allows downstream pipeline steps to consume the build result.
 | `unitSearchPath` | string[] | Value of `-UnitSearchPath`; `$null` when not supplied    |
 | `exitCode`       | int      | MSBuild process exit code                                |
 | `success`        | bool     | `$true` when `exitCode` is 0                             |
-| `output`         | string   | Captured MSBuild output                                  |
+| `warnings`       | int      | Warning count parsed from MSBuild summary                |
+| `errors`         | int      | Error count parsed from MSBuild summary                  |
 
 Note: On fatal errors before MSBuild is invoked (exit codes 2, 3, 4) no result
 object is emitted.
@@ -355,7 +359,21 @@ you can chain a test runner or other step:
         # run tests, package, etc.
     }
 
-## Example 5) Error -- no Delphi installation supplied (exit 3)
+## Example 5) Normal -- build with defines and check warnings
+
+Pass additional compiler defines and inspect the build summary counts:
+
+```powershell
+$result = delphi-inspect.ps1 -DetectLatest -Platform Win32 -BuildSystem MSBuild |
+              delphi-msbuild.ps1 -ProjectFile .\src\MyApp.dproj `
+                  -Config Release -Define CI, PRODUCTION
+
+if ($result.success -and $result.warnings -gt 0) {
+    Write-Warning "Build succeeded with $($result.warnings) warning(s)"
+}
+```
+
+## Example 6) Error -- no Delphi installation supplied (exit 3)
 
 Running without a piped object or `-RootDir`:
 
@@ -384,7 +402,7 @@ delphi-msbuild.ps1 -ProjectFile .\src\MyApp.dproj -RootDir C:\SomeDir
 # exit code: 3
 ```
 
-## Example 6) Error -- project file not found (exit 4)
+## Example 7) Error -- project file not found (exit 4)
 
 ```powershell
 delphi-inspect.ps1 -DetectLatest -Platform Win32 -BuildSystem MSBuild |
@@ -395,7 +413,7 @@ delphi-inspect.ps1 -DetectLatest -Platform Win32 -BuildSystem MSBuild |
 # no result object emitted
 ```
 
-## Example 7) Error -- MSBuild build failure (exit 5)
+## Example 8) Error -- MSBuild build failure (exit 5)
 
 When MSBuild itself runs but returns a non-zero exit code (compilation
 errors, missing components, etc.), the result object **is** emitted with
