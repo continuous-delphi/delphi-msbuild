@@ -1,3 +1,28 @@
+# -----------------------------------------------------------------------------
+# delphi-msbuild
+#
+# Simple command-line consistent builds for Delphi projects.
+#
+# Project repository:
+# https://github.com/continuous-delphi/delphi-msbuild
+#
+# Pair with delphi-inspect to discover the full list of installed Delphi toolchains
+# (or pick the latest) and pass build settings into scripts or CI.
+# https://github.com/continuous-delphi/delphi-inspect
+#
+# Also bundled as part of delphi-powershell-ci, providing a suite of pipeline
+# actions including: Clean, IncVer, Build, Run, Coverage, CallGraph, Copy, and Compress.
+# https://github.com/continuous-delphi/delphi-powershell-ci
+#
+# Part of Continuous-Delphi: Strengthening Delphi's continued success
+# https://github.com/continuous-delphi
+#
+# Copyright (c) 2026 Darian Miller
+# Licensed under the MIT License.
+# https://opensource.org/licenses/MIT
+# SPDX-License-Identifier: MIT
+# -----------------------------------------------------------------------------
+
 <#
 delphi-msbuild.ps1
 
