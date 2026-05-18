@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-05-18
+
+- Reverted delphi-logger changes. Reconsidered - noise greater than value
+
 ## [1.0.0] - 2026-05-14
 
 - Support for `delphi-logger` added (opt-in structural logging for debug
