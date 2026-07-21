@@ -44,12 +44,15 @@
     BuildAllUnits switch adds /p:DCC_BuildAllUnits=true; omitted adds nothing.
     EnvLibraryPath adds quoted /p:_EnvLibraryPath; omitted adds nothing.
     BuildAllUnits remains overridable via -Property (override appears later).
+    MsbuildPath is forwarded to Invoke-MsbuildExe; omitted forwards empty.
 
   Describe 5 - Main flow (via Invoke-ToolProcess, no MSBuild calls):
     Exits 3 when no rootDir is provided (no pipeline, no -RootDir).
     Exits 3 when rootDir directory does not exist on disk.
     Exits 3 when rsvars.bat is absent under rootDir.
     Exits 4 when project file does not exist.
+    Exits 2 when -MsbuildPath does not exist.
+    -SkipRsvars bypasses rootDir/rsvars requirement (exits 4, not 3).
 #>
 
 Describe 'Resolve-RootDir' {
@@ -858,6 +861,53 @@ Describe 'Invoke-MsbuildProject' {
 
   }
 
+  Context 'MsbuildPath is forwarded to Invoke-MsbuildExe' {
+
+    BeforeAll {
+      $script:capturedMsbuildPath = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedMsbuildPath = $MsbuildPath
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'Win32' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal' `
+        -MsbuildPath 'C:\NET\v4.0.30319\msbuild.exe'
+    }
+
+    It 'passes the MsbuildPath through to Invoke-MsbuildExe' {
+      $script:capturedMsbuildPath | Should -Be 'C:\NET\v4.0.30319\msbuild.exe'
+    }
+
+  }
+
+  Context 'MsbuildPath omitted forwards empty string to Invoke-MsbuildExe' {
+
+    BeforeAll {
+      $script:capturedMsbuildPath = 'sentinel'
+      Mock Invoke-MsbuildExe {
+        $script:capturedMsbuildPath = $MsbuildPath
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'Win32' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal'
+    }
+
+    It 'MsbuildPath is empty (Invoke-MsbuildExe falls back to PATH lookup)' {
+      $script:capturedMsbuildPath | Should -BeNullOrEmpty
+    }
+
+  }
+
 }
 
 Describe 'Main flow -- pre-MSBuild validation (no MSBuild invoked)' {
@@ -970,6 +1020,53 @@ Describe 'Main flow -- pre-MSBuild validation (no MSBuild invoked)' {
 
     It 'stderr mentions the missing project file' {
       $script:result.StdErr -join ' ' | Should -Match 'not found'
+    }
+
+  }
+
+  Context 'exits 2 when -MsbuildPath does not exist' {
+
+    BeforeAll {
+      $script:result = Invoke-ToolProcess -ScriptPath $script:scriptPath -Arguments @(
+        '-ProjectFile', 'C:\Fake\MyApp.dproj',
+        '-MsbuildPath', 'C:\DoesNotExist\v4.0.30319\msbuild.exe'
+      )
+    }
+
+    It 'exit code is 2' {
+      $script:result.ExitCode | Should -Be 2
+    }
+
+    It 'stderr mentions the missing MSBuild executable' {
+      $script:result.StdErr -join ' ' | Should -Match 'MSBuild executable not found'
+    }
+
+  }
+
+  Context '-SkipRsvars bypasses the rootDir/rsvars requirement' {
+
+    BeforeAll {
+      # No -RootDir supplied.  Without -SkipRsvars this would exit 3; with it,
+      # rootDir/rsvars validation is skipped and the flow reaches the project
+      # file check, which fails (exit 4) for a non-existent project.  This
+      # proves -SkipRsvars removes the rsvars requirement while leaving later
+      # validation intact.
+      $script:result = Invoke-ToolProcess -ScriptPath $script:scriptPath -Arguments @(
+        '-ProjectFile', 'C:\Fake\DoesNotExist.dproj',
+        '-SkipRsvars'
+      )
+    }
+
+    It 'does not exit 3 (rootDir/rsvars no longer required)' {
+      $script:result.ExitCode | Should -Not -Be 3
+    }
+
+    It 'exit code is 4 (project validation still runs)' {
+      $script:result.ExitCode | Should -Be 4
+    }
+
+    It 'stderr does not mention rsvars.bat' {
+      $script:result.StdErr -join ' ' | Should -Not -Match 'rsvars\.bat'
     }
 
   }

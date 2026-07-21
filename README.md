@@ -81,6 +81,9 @@ piped `delphi-inspect` result object.
 
 Note: An explicit `-RootDir` takes precedence over the piped value.
 
+Note: `-RootDir` is required unless `-SkipRsvars` is used, in which case it
+becomes optional metadata (see [-SkipRsvars](#-skiprsvars---switch)).
+
 ## -Platform
 
 ```text
@@ -309,6 +312,47 @@ When not set (default):
 - On build failure, no additional stderr message is emitted
   (the captured output already contains the compiler diagnostics).
 
+## -SkipRsvars   (switch)
+
+```text
+-SkipRsvars
+```
+
+By default the script requires `<RootDir>\bin\rsvars.bat`, sources it, and builds
+in the resulting environment.  When `-SkipRsvars` is set:
+
+- `rsvars.bat` is **not** required or sourced.
+- The build runs in the **caller's current process environment** -- set
+  `BDS`, `PATH`, `FrameworkDir`, etc. yourself before invoking (the approach
+  `_SetDelphiBuildPaths.bat` takes for trimmed, non-installed toolchains).
+- `-RootDir` becomes optional metadata; it is not validated, and its absence no
+  longer produces exit code 3.  (The project-file check, exit 4, still runs.)
+
+```powershell
+# Caller sets the Delphi environment, then builds without rsvars
+$env:BDS = 'G:\radprogrammer\rad-buildfiles-d12'
+delphi-msbuild.ps1 -ProjectFile .\src\MyApp.dproj -SkipRsvars
+```
+
+## -MsbuildPath
+
+```text
+-MsbuildPath <string>
+```
+
+Invoke a specific `msbuild.exe` instead of resolving `msbuild.exe` from `PATH`.
+This allows explicit per-era .NET Framework MSBuild selection (`v2.0.50727`,
+`v3.5`, `v4.0.30319`), which matters for older (2007-2010-era) Delphi builds
+where the batch path chose the framework version explicitly.
+
+If the supplied path does not exist, the script exits with code `2` before
+invoking any build.
+
+```powershell
+delphi-msbuild.ps1 -ProjectFile .\src\MyApp.dproj -SkipRsvars `
+    -MsbuildPath 'C:\Windows\Microsoft.NET\Framework\v4.0.30319\MSBuild.exe'
+```
+
 ## -DelphiInstallation (pipeline input)
 
 ```text
@@ -341,8 +385,10 @@ This allows downstream pipeline steps to consume the build result.
 | `define`         | string[] | Values passed via `-Define`; empty array when not supplied|
 | `buildAllUnits`  | bool     | `$true` when `-BuildAllUnits` was supplied               |
 | `envLibraryPath` | string   | Value of `-EnvLibraryPath`; `$null` when not supplied    |
-| `rootDir`        | string   | Resolved Delphi installation root                        |
-| `rsvarsPath`     | string   | Derived path to `rsvars.bat`                             |
+| `rootDir`        | string   | Resolved Delphi installation root; `$null` with `-SkipRsvars` and no `-RootDir`|
+| `rsvarsPath`     | string   | Derived path to `rsvars.bat`; `$null` with `-SkipRsvars` when no `-RootDir` given|
+| `skipRsvars`     | bool     | `$true` when `-SkipRsvars` was supplied                  |
+| `msbuildPath`    | string   | Value of `-MsbuildPath`; `$null` when not supplied       |
 | `exeOutputDir`   | string   | Value of `-ExeOutputDir`; `$null` when not supplied      |
 | `dcuOutputDir`   | string   | Value of `-DcuOutputDir`; `$null` when not supplied      |
 | `unitSearchPath` | string[] | Value of `-UnitSearchPath`; `$null` when not supplied    |
@@ -363,8 +409,8 @@ object is emitted.
 |------|---------------------------------------------------------------------|
 | `0`  | Build succeeded                                                     |
 | `1`  | Unexpected internal error (unhandled exception)                     |
-| `2`  | `-ProjectFile` was not supplied                                     |
-| `3`  | `rootDir` missing/empty, directory not found, or `rsvars.bat` absent|
+| `2`  | Invalid arguments: `-ProjectFile` missing, or `-MsbuildPath` does not exist|
+| `3`  | `rootDir` missing/empty, directory not found, or `rsvars.bat` absent (not applicable with `-SkipRsvars`)|
 | `4`  | Project file not found on disk                                      |
 | `5`  | MSBuild completed but returned a non-zero exit code                 |
 

@@ -68,6 +68,7 @@ directly since they are load-bearing for older/Win32 builds.
 ---
 Title: Add -SkipRsvars and -MsbuildPath for caller-managed env / msbuild selection
 Issue: #23
+Status: closed
 Labels: enhancement
 Body:
 ## Background

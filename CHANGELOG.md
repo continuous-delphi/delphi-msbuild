@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.4] - 2026-07-21
+
+- Add `-SkipRsvars` switch to build using the caller's current process
+  environment instead of requiring and sourcing `rsvars.bat` (for
+  caller-managed environments and roots that lack rsvars), and `-MsbuildPath`
+  to invoke a specific `msbuild.exe` instead of resolving one from `PATH` (for
+  explicit per-era .NET Framework selection). Default behavior is unchanged.
+  [#23](https://github.com/continuous-delphi/delphi-msbuild/issues/23)
+
 ## [1.1.3] - 2026-07-21
 
 - Add `-BuildAllUnits` switch (`/p:DCC_BuildAllUnits=true`) and `-EnvLibraryPath`
