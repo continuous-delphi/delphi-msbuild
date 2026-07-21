@@ -41,6 +41,9 @@
     Property value containing spaces is quoted.
     Property value containing semicolons is quoted.
     Property is appended after built-ins (override precedence).
+    BuildAllUnits switch adds /p:DCC_BuildAllUnits=true; omitted adds nothing.
+    EnvLibraryPath adds quoted /p:_EnvLibraryPath; omitted adds nothing.
+    BuildAllUnits remains overridable via -Property (override appears later).
 
   Describe 5 - Main flow (via Invoke-ToolProcess, no MSBuild calls):
     Exits 3 when no rootDir is provided (no pipeline, no -RootDir).
@@ -725,6 +728,132 @@ Describe 'Invoke-MsbuildProject' {
       $builtinIdx  = [array]::IndexOf($script:capturedArgs, '/p:Config=Debug')
       $overrideIdx = [array]::IndexOf($script:capturedArgs, '/p:Config=Release')
       $overrideIdx | Should -BeGreaterThan $builtinIdx
+    }
+
+  }
+
+  Context 'BuildAllUnits switch adds /p:DCC_BuildAllUnits=true' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile    'C:\Projects\MyApp.dproj' `
+        -Platform       'Win32' `
+        -Config         'Debug' `
+        -Target         'Build' `
+        -Verbosity      'normal' `
+        -BuildAllUnits
+    }
+
+    It 'includes /p:DCC_BuildAllUnits=true' {
+      $script:capturedArgs | Should -Contain '/p:DCC_BuildAllUnits=true'
+    }
+
+  }
+
+  Context 'BuildAllUnits omitted adds no /p:DCC_BuildAllUnits argument' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'Win32' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal'
+    }
+
+    It 'no argument contains DCC_BuildAllUnits' {
+      ($script:capturedArgs | Where-Object { $_ -like '*DCC_BuildAllUnits*' }) | Should -BeNullOrEmpty
+    }
+
+  }
+
+  Context 'EnvLibraryPath adds quoted /p:_EnvLibraryPath' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile     'C:\Projects\MyApp.dproj' `
+        -Platform        'Win32' `
+        -Config          'Debug' `
+        -Target          'Build' `
+        -Verbosity       'normal' `
+        -EnvLibraryPath  'C:\Program Files\Lib'
+    }
+
+    It 'includes /p:_EnvLibraryPath="C:\Program Files\Lib"' {
+      $script:capturedArgs | Should -Contain '/p:_EnvLibraryPath="C:\Program Files\Lib"'
+    }
+
+  }
+
+  Context 'EnvLibraryPath omitted adds no /p:_EnvLibraryPath argument' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'Win32' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal'
+    }
+
+    It 'no argument contains _EnvLibraryPath' {
+      ($script:capturedArgs | Where-Object { $_ -like '*_EnvLibraryPath*' }) | Should -BeNullOrEmpty
+    }
+
+  }
+
+  Context 'BuildAllUnits remains overridable via -Property' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      # -BuildAllUnits emits =true; a -Property override must land AFTER it.
+      Invoke-MsbuildProject `
+        -ProjectFile    'C:\Projects\MyApp.dproj' `
+        -Platform       'Win32' `
+        -Config         'Debug' `
+        -Target         'Build' `
+        -Verbosity      'normal' `
+        -BuildAllUnits `
+        -Property       @{ DCC_BuildAllUnits = 'false' }
+    }
+
+    It 'first-class /p:DCC_BuildAllUnits=true still present' {
+      $script:capturedArgs | Should -Contain '/p:DCC_BuildAllUnits=true'
+    }
+
+    It '-Property override /p:DCC_BuildAllUnits=false appears later' {
+      $firstClassIdx = [array]::IndexOf($script:capturedArgs, '/p:DCC_BuildAllUnits=true')
+      $overrideIdx   = [array]::IndexOf($script:capturedArgs, '/p:DCC_BuildAllUnits=false')
+      $overrideIdx | Should -BeGreaterThan $firstClassIdx
     }
 
   }

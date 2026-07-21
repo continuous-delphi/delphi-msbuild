@@ -225,6 +225,38 @@ delphi-inspect.ps1 -DetectLatest -Platform Win32 -BuildSystem MSBuild |
     delphi-msbuild.ps1 -ProjectFile .\src\MyApp.dproj -Define CI, MYFLAG
 ```
 
+## -BuildAllUnits   (switch)
+
+```text
+-BuildAllUnits
+```
+
+When set, appends `/p:DCC_BuildAllUnits=true`, forcing the compiler to build
+every unit reachable from the project rather than only those out of date.  This
+is a first-class shortcut for a property the older batch build path always set.
+
+Because it is emitted before `-Property`, a `-Property @{ DCC_BuildAllUnits = ... }`
+entry still overrides it.
+
+```powershell
+delphi-msbuild.ps1 -ProjectFile .\src\MyApp.dproj -RootDir $root -BuildAllUnits
+```
+
+## -EnvLibraryPath
+
+```text
+-EnvLibraryPath <string>
+```
+
+Sets `/p:_EnvLibraryPath="..."` (the value is always quoted).  Used by the older
+batch build path's Win32-only sub-path.  A first-class shortcut that remains
+overridable via `-Property`.
+
+```powershell
+delphi-msbuild.ps1 -ProjectFile .\src\MyApp.dproj -RootDir $root `
+    -EnvLibraryPath 'C:\Program Files\Lib'
+```
+
 ## -Property
 
 ```text
@@ -307,6 +339,8 @@ This allows downstream pipeline steps to consume the build result.
 | `config`         | string   | Config value used (e.g. `Debug`)                         |
 | `target`         | string   | Target used (e.g. `Build`)                               |
 | `define`         | string[] | Values passed via `-Define`; empty array when not supplied|
+| `buildAllUnits`  | bool     | `$true` when `-BuildAllUnits` was supplied               |
+| `envLibraryPath` | string   | Value of `-EnvLibraryPath`; `$null` when not supplied    |
 | `rootDir`        | string   | Resolved Delphi installation root                        |
 | `rsvarsPath`     | string   | Derived path to `rsvars.bat`                             |
 | `exeOutputDir`   | string   | Value of `-ExeOutputDir`; `$null` when not supplied      |

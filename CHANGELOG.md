@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.3] - 2026-07-21
+
+- Add `-BuildAllUnits` switch (`/p:DCC_BuildAllUnits=true`) and `-EnvLibraryPath`
+  (`/p:_EnvLibraryPath="..."`) first-class shortcuts for two properties the older
+  batch build path relies on. Both are emitted before `-Property`, so a matching
+  `-Property` entry still overrides them.
+  [#22](https://github.com/continuous-delphi/delphi-msbuild/issues/22)
+
 ## [1.1.2] - 2026-07-21
 
 - Add `-Property` parameter: pass arbitrary MSBuild properties through as

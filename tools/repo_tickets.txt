@@ -43,6 +43,7 @@ msbuild path those are project / `DCC_*` property driven).
 ---
 Title: Add first-class -BuildAllUnits and -EnvLibraryPath switches
 Issue: #22
+Status: closed
 Labels: enhancement
 Body:
 ## Background

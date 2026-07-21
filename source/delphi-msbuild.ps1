@@ -58,6 +58,11 @@ NOTES
   -Config is the RAD Studio MSBuild property name (/p:Config); common values
   are Debug and Release.
 
+  -BuildAllUnits (switch) sets /p:DCC_BuildAllUnits=true, and -EnvLibraryPath
+  sets /p:_EnvLibraryPath="..." -- two properties the batch build path relies
+  on.  Both are emitted before -Property, so a matching -Property entry still
+  overrides them.
+
   -Property accepts a hashtable of arbitrary MSBuild properties, each passed
   through as /p:Key=Value (e.g. -Property @{ DCC_BuildAllUnits = 'true' }).
   These are appended after the built-in properties, so an entry overrides a
@@ -120,6 +125,16 @@ param(
 
   [string[]]$Define = @(),
 
+  # Build every unit reachable from the project, not just those out of date
+  # (/p:DCC_BuildAllUnits=true).  First-class shortcut for a property the batch
+  # build path always sets; remains overridable via -Property.
+  [switch]$BuildAllUnits,
+
+  # Library path for the environment (/p:_EnvLibraryPath="...").  Used by the
+  # batch build path's Win32-only sub-path.  First-class shortcut; remains
+  # overridable via -Property.
+  [string]$EnvLibraryPath,
+
   # Arbitrary MSBuild properties passed through as /p:Key=Value.  Provide a
   # hashtable, e.g. -Property @{ DCC_BuildAllUnits = 'true'; DCC_ResourcePath = 'C:\res' }.
   # Entries are appended AFTER the built-in properties (Config, Platform, and the
@@ -153,7 +168,7 @@ $ExitRootDirError     = 3
 $ExitProjectNotFound  = 4
 $ExitBuildFailed      = 5
 
-$script:Version = '1.1.2'
+$script:Version = '1.1.3'
 
 # Resolve the Delphi root dir from the explicit -RootDir parameter or from a
 # piped delphi-inspect result object (.rootDir property).
@@ -253,6 +268,8 @@ function Invoke-MsbuildProject {
     [string]$DcuOutputDir,
     [string[]]$UnitSearchPath = @(),
     [string[]]$Define         = @(),
+    [switch]$BuildAllUnits,
+    [string]$EnvLibraryPath,
     [hashtable]$Property      = @{},
     [switch]$ShowOutput
   )
@@ -278,6 +295,12 @@ function Invoke-MsbuildProject {
     $defineValue = '$(DCC_Define);' + ($Define -join ';')
     $msbuildArgs += "/p:DCC_Define=`"$defineValue`""
   }
+
+  # First-class shortcuts for two properties the batch build path relies on.
+  # Emitted before the generic pass-through so a matching -Property entry can
+  # still override them (MSBuild honours the last /p: occurrence).
+  if ($BuildAllUnits) { $msbuildArgs += "/p:DCC_BuildAllUnits=true" }
+  if (-not [string]::IsNullOrWhiteSpace($EnvLibraryPath)) { $msbuildArgs += "/p:_EnvLibraryPath=`"$EnvLibraryPath`"" }
 
   # Generic /p: pass-through.  Appended last so an explicit -Property entry
   # overrides a built-in property of the same name (MSBuild honours the last
@@ -395,6 +418,8 @@ try {
     -DcuOutputDir  $DcuOutputDir `
     -UnitSearchPath $UnitSearchPath `
     -Define        $Define `
+    -BuildAllUnits:$BuildAllUnits `
+    -EnvLibraryPath $EnvLibraryPath `
     -Property      $Property `
     -ShowOutput:$ShowOutput
 
@@ -411,6 +436,8 @@ try {
     config         = $Config
     target         = $Target
     define         = $Define
+    buildAllUnits  = [bool]$BuildAllUnits
+    envLibraryPath = if ([string]::IsNullOrWhiteSpace($EnvLibraryPath)) { $null } else { $EnvLibraryPath }
     property       = if ($Property.Count -eq 0) { $null } else { $Property }
     rootDir        = $resolvedRootDir
     rsvarsPath     = $rsvarsPath
