@@ -1255,11 +1255,12 @@ Describe 'Native argument passing (real arg-echo exe)' {
   # Requires the .NET Framework C# compiler (csc.exe); on machines/CI without it
   # (e.g. Linux runners) every test here skips.  Evaluated at Pester discovery
   # time so -Skip: can capture it.
-  $frameworkRoots = @(
-    (Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'),
-    (Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe')
-  )
-  $cscDiscover  = if ($env:WINDIR) { $frameworkRoots | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1 } else { $null }
+  $cscDiscover = if ($env:WINDIR) {
+    @(
+      (Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'),
+      (Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe')
+    ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+  } else { $null }
   $skipNative   = -not $cscDiscover
 
   # Windows PowerShell 5.1, located via its fixed path (see WindowsPS51Compat.Tests.ps1).

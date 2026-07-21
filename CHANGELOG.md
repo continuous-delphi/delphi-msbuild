@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.7]
+
+- Fix Linux CI: the native arg-echo test built its `csc.exe` candidate paths
+  with `Join-Path $env:WINDIR` at Pester discovery time, which threw on Linux
+  runners where `$env:WINDIR` is null. The Windows-only paths are now inside the
+  existing guard; the tests already skip cleanly when the toolchain is absent.
+  [#24](https://github.com/continuous-delphi/delphi-msbuild/issues/24)
+
 ## [1.2.6]
 
 - Fix native-argument quoting for `/p:` values ending in a backslash. Values
