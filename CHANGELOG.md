@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.2] - 2026-07-21
+
+- Add `-Property` parameter: pass arbitrary MSBuild properties through as
+  `/p:Key=Value` (e.g. `DCC_BuildAllUnits`, `_EnvLibraryPath`,
+  `DCC_ResourcePath`). Entries are appended after the built-in properties so
+  they override a built-in of the same name; values with whitespace or
+  semicolons are quoted automatically.
+  [#21](https://github.com/continuous-delphi/delphi-msbuild/issues/21)
+
 ## [1.1.0] - 2026-05-18
 
 - Reverted delphi-logger changes. Reconsidered - noise greater than value

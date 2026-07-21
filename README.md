@@ -225,6 +225,39 @@ delphi-inspect.ps1 -DetectLatest -Platform Win32 -BuildSystem MSBuild |
     delphi-msbuild.ps1 -ProjectFile .\src\MyApp.dproj -Define CI, MYFLAG
 ```
 
+## -Property
+
+```text
+-Property <hashtable>
+```
+
+Generic pass-through for arbitrary MSBuild properties.  Each entry is appended
+to the MSBuild command line as `/p:Key=Value`.  This is the escape hatch for any
+property the script does not expose as a first-class parameter -- for example
+`DCC_BuildAllUnits`, `_EnvLibraryPath`, `DCC_ResourcePath`, `DCC_UsePackage`, or
+`DCC_Namespace`.
+
+`-Property` entries are appended **after** the built-in properties (`Config`,
+`Platform`, and the `DCC_*` output/search-path properties).  Because MSBuild
+honours the **last** `/p:` occurrence on the command line, an entry supplied via
+`-Property` **overrides** a built-in property of the same name.
+
+Values containing whitespace or semicolons are quoted automatically; clean
+values are passed unquoted.  Keys are emitted in sorted order for deterministic
+command lines.
+
+Examples:
+
+```powershell
+# Build all units and set a resource path
+delphi-msbuild.ps1 -ProjectFile .\src\MyApp.dproj -RootDir $root `
+    -Property @{ DCC_BuildAllUnits = 'true'; DCC_ResourcePath = 'C:\res' }
+
+# Value with spaces is quoted automatically -> /p:_EnvLibraryPath="C:\Program Files\Lib"
+delphi-msbuild.ps1 -ProjectFile .\src\MyApp.dproj -RootDir $root `
+    -Property @{ _EnvLibraryPath = 'C:\Program Files\Lib' }
+```
+
 ## -ShowOutput   (switch)
 
 ```text
@@ -279,6 +312,7 @@ This allows downstream pipeline steps to consume the build result.
 | `exeOutputDir`   | string   | Value of `-ExeOutputDir`; `$null` when not supplied      |
 | `dcuOutputDir`   | string   | Value of `-DcuOutputDir`; `$null` when not supplied      |
 | `unitSearchPath` | string[] | Value of `-UnitSearchPath`; `$null` when not supplied    |
+| `property`       | hashtable| Properties passed via `-Property`; `$null` when not supplied|
 | `exitCode`       | int      | MSBuild process exit code                                |
 | `success`        | bool     | `$true` when `exitCode` is 0                             |
 | `warnings`       | int      | Warning count parsed from MSBuild summary                |

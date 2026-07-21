@@ -4,3 +4,102 @@
 # dev-automation-tooling script & document reference: C:\code\dev-automation-tooling
 
 ---
+Title: Add generic MSBuild property pass-through (-Property)
+Issue: #21
+Status: closed
+Labels: enhancement
+Body:
+## Background
+
+Arose from evaluating `delphi-msbuild.ps1` as a replacement for an older batch
+build system (`rad-buildfiles-shared`: `DelphiBuild.bat`,
+`_SetDelphiBuildPaths.bat`) that compiles Delphi against trimmed, non-installed
+per-version toolchains (no IDE install, `BDS`/`BDSLIB`/`BDSBIN` set manually).
+All changes are opt-in and backward compatible.
+
+## Problem
+
+Only `Config`, `Platform`, `DCC_ExeOutput`, `DCC_DcuOutput`,
+`DCC_UnitSearchPath` (append), and `DCC_Define` (append) can be set. There is no
+way to pass arbitrary `/p:` properties. The batch sets `/p:DCC_BuildAllUnits=true`
+and `/p:_EnvLibraryPath`, neither of which is exposed, and there is no general
+escape hatch.
+
+## Proposed
+
+Add `-Property <hashtable>` (or `-Property <string[]>` of `Key=Value`), each entry
+appended as `/p:Key=Value`. This single feature also covers `DCC_ResourcePath`,
+`DCC_UsePackage`, `DCC_Namespace`, etc. -- the msbuild-side equivalent of the DCC
+`--no-config` / `-R` / `-LU` requests filed against `delphi-dccbuild` (on the
+msbuild path those are project / `DCC_*` property driven).
+
+## Acceptance criteria
+
+- [ ] Each `-Property` entry becomes a `/p:Key=Value` argument
+- [ ] Values containing spaces or semicolons are quoted correctly
+- [ ] Precedence vs the built-in properties is documented (explicit `-Property`
+      should win or the behavior is clearly defined)
+
+---
+Title: Add first-class -BuildAllUnits and -EnvLibraryPath switches
+Issue: #22
+Labels: enhancement
+Body:
+## Background
+
+Part of enabling `delphi-msbuild.ps1` to replace the older batch MSBUILD path
+(`rad-buildfiles-shared`). Opt-in and backward compatible. Builds on the generic
+`-Property` pass-through, but exposes the two properties the batch relies on
+directly since they are load-bearing for older/Win32 builds.
+
+## Proposed
+
+- `-BuildAllUnits` (switch)   -> `/p:DCC_BuildAllUnits=true`
+- `-EnvLibraryPath <string>`  -> `/p:_EnvLibraryPath="..."` (used by the batch's
+  Win32-only sub-path)
+
+## Acceptance criteria
+
+- [ ] `-BuildAllUnits` maps to `/p:DCC_BuildAllUnits=true`
+- [ ] `-EnvLibraryPath` maps to `/p:_EnvLibraryPath="..."`
+- [ ] Both remain overridable via the generic `-Property` pass-through
+
+---
+Title: Add -SkipRsvars and -MsbuildPath for caller-managed env / msbuild selection
+Issue: #23
+Labels: enhancement
+Body:
+## Background
+
+Part of enabling `delphi-msbuild.ps1` to replace the older batch MSBUILD path
+(`rad-buildfiles-shared`: `_SetDelphiBuildPaths.bat` does per-era framework
+selection and manual `BDS` env). Opt-in and backward compatible.
+
+## Problem
+
+The script hard-requires `<RootDir>\bin\rsvars.bat` (exit 3), sources it, and then
+runs a bare `& msbuild.exe` off `PATH`. Two issues:
+
+- (a) Caller-managed environment. A caller may want to set `BDS` / `PATH` /
+  `FrameworkDir` itself (exactly what `_SetDelphiBuildPaths.bat` does) rather than
+  depend on rsvars. A pre-set-env path is required for any root that lacks rsvars.
+- (b) No control over WHICH msbuild runs. It relies entirely on rsvars putting the
+  correct .NET-Framework msbuild first on `PATH`. The batch selects `v2.0.50727` /
+  `v3.5` / `v4.0.30319` per Delphi era explicitly, which matters for older
+  (2007-2010-era) builds.
+
+## Proposed
+
+- `-SkipRsvars` (switch): do not require or source rsvars; build using the caller's
+  current process environment.
+- `-MsbuildPath <string>` (optional): invoke a specific `msbuild.exe` instead of the
+  `PATH` lookup, enabling explicit per-era .NET-Framework selection.
+
+## Acceptance criteria
+
+- [ ] With `-SkipRsvars`, a root lacking `bin\rsvars.bat` builds using the current env
+- [ ] With `-MsbuildPath`, that exact msbuild binary is invoked
+- [ ] Existing behavior (require + source rsvars, PATH msbuild) is unchanged when
+      neither switch is supplied
+
+---

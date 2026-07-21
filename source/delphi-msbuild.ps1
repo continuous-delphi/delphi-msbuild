@@ -58,6 +58,12 @@ NOTES
   -Config is the RAD Studio MSBuild property name (/p:Config); common values
   are Debug and Release.
 
+  -Property accepts a hashtable of arbitrary MSBuild properties, each passed
+  through as /p:Key=Value (e.g. -Property @{ DCC_BuildAllUnits = 'true' }).
+  These are appended after the built-in properties, so an entry overrides a
+  built-in property of the same name.  Values containing whitespace or
+  semicolons are quoted automatically.
+
   MSBuild output is always captured and returned in the result object's
   .output property.  Use -ShowOutput to also stream output to the console in
   real time; .output is populated in both cases.
@@ -114,6 +120,14 @@ param(
 
   [string[]]$Define = @(),
 
+  # Arbitrary MSBuild properties passed through as /p:Key=Value.  Provide a
+  # hashtable, e.g. -Property @{ DCC_BuildAllUnits = 'true'; DCC_ResourcePath = 'C:\res' }.
+  # Entries are appended AFTER the built-in properties (Config, Platform, and the
+  # DCC_* outputs/paths), so an entry here overrides a built-in of the same name --
+  # MSBuild uses the last /p: occurrence on the command line.  Values containing
+  # whitespace or semicolons are automatically quoted.
+  [hashtable]$Property = @{},
+
   [switch]$ShowOutput,
 
   # When set, the result object is written as compressed JSON to this file path.
@@ -139,7 +153,7 @@ $ExitRootDirError     = 3
 $ExitProjectNotFound  = 4
 $ExitBuildFailed      = 5
 
-$script:Version = '1.1.1'
+$script:Version = '1.1.2'
 
 # Resolve the Delphi root dir from the explicit -RootDir parameter or from a
 # piped delphi-inspect result object (.rootDir property).
@@ -239,6 +253,7 @@ function Invoke-MsbuildProject {
     [string]$DcuOutputDir,
     [string[]]$UnitSearchPath = @(),
     [string[]]$Define         = @(),
+    [hashtable]$Property      = @{},
     [switch]$ShowOutput
   )
 
@@ -262,6 +277,20 @@ function Invoke-MsbuildProject {
   if ($Define.Count -gt 0) {
     $defineValue = '$(DCC_Define);' + ($Define -join ';')
     $msbuildArgs += "/p:DCC_Define=`"$defineValue`""
+  }
+
+  # Generic /p: pass-through.  Appended last so an explicit -Property entry
+  # overrides a built-in property of the same name (MSBuild honours the last
+  # /p: occurrence).  Keys are sorted for deterministic argument ordering.
+  if ($Property.Count -gt 0) {
+    foreach ($key in ($Property.Keys | Sort-Object)) {
+      $value = [string]$Property[$key]
+      if ($value -match '[\s;]') {
+        $msbuildArgs += "/p:$key=`"$value`""
+      } else {
+        $msbuildArgs += "/p:$key=$value"
+      }
+    }
   }
 
   return Invoke-MsbuildExe -Arguments $msbuildArgs -ShowOutput:$ShowOutput
@@ -366,6 +395,7 @@ try {
     -DcuOutputDir  $DcuOutputDir `
     -UnitSearchPath $UnitSearchPath `
     -Define        $Define `
+    -Property      $Property `
     -ShowOutput:$ShowOutput
 
   $parsedDirs = Get-BuildOutputDir `
@@ -381,6 +411,7 @@ try {
     config         = $Config
     target         = $Target
     define         = $Define
+    property       = if ($Property.Count -eq 0) { $null } else { $Property }
     rootDir        = $resolvedRootDir
     rsvarsPath     = $rsvarsPath
     exeOutputDir   = if (-not [string]::IsNullOrWhiteSpace($ExeOutputDir)) { $ExeOutputDir } else { $parsedDirs.ExeOutputDir }

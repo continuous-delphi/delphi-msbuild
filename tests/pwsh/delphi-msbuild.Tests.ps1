@@ -35,6 +35,12 @@
     Omits /p:DCC_Define when no defines are supplied.
     Appends /p:DCC_Define with $(DCC_Define) prefix for a single define.
     Appends /p:DCC_Define with $(DCC_Define) prefix for multiple defines.
+    Property omitted adds no extra /p: argument.
+    Property single entry becomes /p:Key=Value (unquoted when clean).
+    Property multiple entries emitted in sorted key order.
+    Property value containing spaces is quoted.
+    Property value containing semicolons is quoted.
+    Property is appended after built-ins (override precedence).
 
   Describe 5 - Main flow (via Invoke-ToolProcess, no MSBuild calls):
     Exits 3 when no rootDir is provided (no pipeline, no -RootDir).
@@ -558,6 +564,167 @@ Describe 'Invoke-MsbuildProject' {
 
     It 'includes /p:DCC_Define="$(DCC_Define);MYFLAG;USE_JEDI_JCL"' {
       $script:capturedArgs | Should -Contain '/p:DCC_Define="$(DCC_Define);MYFLAG;USE_JEDI_JCL"'
+    }
+
+  }
+
+  Context 'Property omitted adds no extra /p: argument' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'Win32' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal'
+    }
+
+    It 'passes only the six baseline arguments' {
+      $script:capturedArgs.Count | Should -Be 6
+    }
+
+  }
+
+  Context 'Property single entry becomes /p:Key=Value' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'Win32' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal' `
+        -Property    @{ DCC_BuildAllUnits = 'true' }
+    }
+
+    It 'includes /p:DCC_BuildAllUnits=true unquoted' {
+      $script:capturedArgs | Should -Contain '/p:DCC_BuildAllUnits=true'
+    }
+
+  }
+
+  Context 'Property multiple entries are emitted in sorted key order' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'Win32' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal' `
+        -Property    @{ Zeta = '1'; Alpha = '2' }
+    }
+
+    It 'includes /p:Alpha=2' {
+      $script:capturedArgs | Should -Contain '/p:Alpha=2'
+    }
+
+    It 'includes /p:Zeta=1' {
+      $script:capturedArgs | Should -Contain '/p:Zeta=1'
+    }
+
+    It 'emits Alpha before Zeta (deterministic sort)' {
+      $alphaIdx = [array]::IndexOf($script:capturedArgs, '/p:Alpha=2')
+      $zetaIdx  = [array]::IndexOf($script:capturedArgs, '/p:Zeta=1')
+      $alphaIdx | Should -BeLessThan $zetaIdx
+    }
+
+  }
+
+  Context 'Property value containing spaces is quoted' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'Win32' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal' `
+        -Property    @{ _EnvLibraryPath = 'C:\Program Files\Lib' }
+    }
+
+    It 'includes /p:_EnvLibraryPath="C:\Program Files\Lib"' {
+      $script:capturedArgs | Should -Contain '/p:_EnvLibraryPath="C:\Program Files\Lib"'
+    }
+
+  }
+
+  Context 'Property value containing semicolons is quoted' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'Win32' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal' `
+        -Property    @{ DCC_ResourcePath = 'C:\A;C:\B' }
+    }
+
+    It 'includes /p:DCC_ResourcePath="C:\A;C:\B"' {
+      $script:capturedArgs | Should -Contain '/p:DCC_ResourcePath="C:\A;C:\B"'
+    }
+
+  }
+
+  Context 'Property is appended after built-in properties (override precedence)' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      # An explicit Config via -Property must land AFTER the built-in /p:Config
+      # so MSBuild's last-wins rule makes it override.
+      Invoke-MsbuildProject `
+        -ProjectFile 'C:\Projects\MyApp.dproj' `
+        -Platform    'Win32' `
+        -Config      'Debug' `
+        -Target      'Build' `
+        -Verbosity   'normal' `
+        -Property    @{ Config = 'Release' }
+    }
+
+    It 'built-in /p:Config=Debug still present' {
+      $script:capturedArgs | Should -Contain '/p:Config=Debug'
+    }
+
+    It 'override /p:Config=Release appears later in the argument list' {
+      $builtinIdx  = [array]::IndexOf($script:capturedArgs, '/p:Config=Debug')
+      $overrideIdx = [array]::IndexOf($script:capturedArgs, '/p:Config=Release')
+      $overrideIdx | Should -BeGreaterThan $builtinIdx
     }
 
   }
