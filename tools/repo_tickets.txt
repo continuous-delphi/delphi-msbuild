@@ -105,3 +105,118 @@ runs a bare `& msbuild.exe` off `PATH`. Two issues:
       neither switch is supplied
 
 ---
+Title: Fix native-argument quoting for /p: values ending in a backslash
+Issue: #24
+Status: closed
+Labels: bug
+Body:
+## Background
+
+The MSBuild argument assembly in `Invoke-MsbuildProject` (source/delphi-msbuild.ps1)
+hand-quotes several `/p:Key=Value` arguments by embedding literal double quotes into
+the PowerShell string, e.g. `"/p:_EnvLibraryPath=`"$EnvLibraryPath`""`. These strings
+are then passed to a native executable (`msbuild.exe`). PowerShell converts each array
+element into a Windows command line, which `CommandLineToArgvW` re-parses into argv.
+
+## Problem
+
+When a value ends in a backslash (normal for a Windows directory path), the emitted
+trailing `\"` is parsed as an *escaped literal quote*, not a closing delimiter. The
+argument boundary is lost and the following arguments merge into the value.
+
+Reproduced with a native arg-echo:
+
+- Windows PowerShell 5.1 (a supported/tested target):
+  `-EnvLibraryPath 'C:\Lib\' -Config Release Project.dproj` -> the exe receives a
+  single argument `/p:_EnvLibraryPath=C:\Lib" /p:Config=Release Project.dproj` --
+  the Config and project arguments are silently lost.
+- PowerShell 7: arguments stay separate but the value keeps literal quotes
+  (`"C:\Lib\"`) -- still wrong.
+
+Affected hand-quoted sites (all in `Invoke-MsbuildProject`):
+
+- `/p:DCC_UnitSearchPath="..."`  (always quoted; latent)
+- `/p:DCC_Define="..."`          (always quoted; latent)
+- `/p:_EnvLibraryPath="..."`     (always quoted; most exposed -- a bare path value)
+- `/p:Key="Value"`               (generic -Property; quoted only when the value
+                                  contains whitespace or a semicolon)
+
+## Root cause it slipped
+
+The unit tests assert the *string shape* of the captured `$Arguments` array against a
+mocked `Invoke-MsbuildExe` (e.g. `Should -Contain '/p:_EnvLibraryPath="C:\Program Files\Lib"'`).
+No test invokes a native executable, so the PowerShell-string-to-argv conversion --
+the part that is actually broken -- is never exercised. The captured-string assertions
+lock in the buggy shape.
+
+## Proposed
+
+- Stop hand-quoting `/p:` values. Pass the argument as `/p:Key=Value` (no embedded
+  quotes) and let PowerShell perform native-argument quoting. A semicolon does not
+  need quoting once the value is a single argv element (MSBuild splits on argv, not on
+  `;`); spaces are auto-quoted by PowerShell. This is correct on PS 7 in all cases.
+- For path-typed values (`-EnvLibraryPath`, `-UnitSearchPath`), trim a trailing
+  backslash before assembling the argument -- MSBuild directory properties do not
+  require it, and this removes the residual Windows PowerShell 5.1 failure for values
+  that contain both a space and a trailing backslash (a known PS 5.1 native-quoting
+  limitation).
+- Minor: `-MsbuildPath` validation at the top-level guard uses
+  `Test-Path -LiteralPath $MsbuildPath` without `-PathType Leaf`, so a directory
+  passes the exit-2 check and fails later with a worse error. Add `-PathType Leaf`.
+
+## Acceptance criteria
+
+- [ ] `-EnvLibraryPath 'C:\Lib\'` yields an argument whose value the invoked exe
+      receives as exactly `C:\Lib` (or `C:\Lib\`), with Config/Platform/project
+      arguments preserved as separate argv elements
+- [ ] The same holds for `-UnitSearchPath`, `-Define`, and generic `-Property` values
+      that end in a backslash and/or contain spaces or semicolons
+- [ ] `-MsbuildPath` pointing at a directory exits 2 (invalid arguments)
+- [ ] A regression test invokes a real native arg-echo (a small compiled/echoing exe
+      or equivalent) and asserts the argv the child process actually receives -- not
+      the string shape of the `$Arguments` array
+- [ ] Behavior verified under both Windows PowerShell 5.1 and PowerShell 7
+
+---
+Title: Pass MSBuild /p: properties via a response file to bypass command-line quoting
+Issue: #25
+Labels: enhancement
+Body:
+## Background
+
+Follow-up to #24.  That fix stopped hand-quoting `/p:` values and trims a trailing
+separator on path-typed values, which is correct on PowerShell 7 in all cases and on
+Windows PowerShell 5.1 for everything except a generic `-Property` value that BOTH
+contains whitespace AND ends in a backslash.  #24 turns that residual case into a
+visible warning on PS 5.1 (it cannot be passed to msbuild.exe without corruption
+because PS 5.1's native-argument quoting escapes the closing quote with the trailing
+backslash).  This ticket removes the residual entirely.
+
+## Problem
+
+Command-line argument quoting is host- and version-dependent (Windows PowerShell 5.1
+vs PowerShell 7 build the command line differently), so no single hand-assembled
+argument array is bulletproof for arbitrary values across both engines.
+
+## Proposed
+
+Write the full `/p:` set to an MSBuild response file (e.g. a temp `args.rsp`, one
+`/p:Key=Value` per line, no quoting) and pass `@args.rsp` to msbuild.exe instead of
+individual `/p:` command-line arguments.  MSBuild reads a response file line-by-line,
+so a value may contain whitespace, semicolons, quotes, or a trailing backslash with no
+escaping -- this bypasses command-line quoting entirely and is correct on both PS 5.1
+and PS 7.  Delete the temp file after the build (try/finally).
+
+Consider applying this to all assembled `/p:` values (built-ins and `-Property`), or at
+minimum to `-Property` and the path-typed values.  The project file, `/t:`, `/v:`, and
+`/nologo` can remain direct command-line arguments.
+
+## Acceptance criteria
+
+- [ ] `/p:` properties are written to a temp response file and passed as `@file`
+- [ ] The response file is deleted after the build (including on failure)
+- [ ] A generic `-Property` value containing whitespace AND ending in a backslash
+      reaches msbuild intact under BOTH Windows PowerShell 5.1 and PowerShell 7
+      (verified by the native arg-echo regression harness added in #24)
+- [ ] The PS 5.1 warning added in #24 is removed once the response-file path makes it
+      unnecessary

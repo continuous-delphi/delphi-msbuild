@@ -38,11 +38,13 @@
     Property omitted adds no extra /p: argument.
     Property single entry becomes /p:Key=Value (unquoted when clean).
     Property multiple entries emitted in sorted key order.
-    Property value containing spaces is quoted.
-    Property value containing semicolons is quoted.
+    Property value containing spaces is passed verbatim (unquoted).
+    Property value containing semicolons is passed verbatim (unquoted).
     Property is appended after built-ins (override precedence).
     BuildAllUnits switch adds /p:DCC_BuildAllUnits=true; omitted adds nothing.
-    EnvLibraryPath adds quoted /p:_EnvLibraryPath; omitted adds nothing.
+    EnvLibraryPath adds /p:_EnvLibraryPath (unquoted); omitted adds nothing.
+    EnvLibraryPath trailing separator is trimmed; drive root is preserved.
+    UnitSearchPath trailing separator on each entry is trimmed.
     BuildAllUnits remains overridable via -Property (override appears later).
     MsbuildPath is forwarded to Invoke-MsbuildExe; omitted forwards empty.
 
@@ -52,7 +54,21 @@
     Exits 3 when rsvars.bat is absent under rootDir.
     Exits 4 when project file does not exist.
     Exits 2 when -MsbuildPath does not exist.
+    Exits 2 when -MsbuildPath is a directory (not a file).
     -SkipRsvars bypasses rootDir/rsvars requirement (exits 4, not 3).
+
+  Describe 6 - Get-PathWithoutTrailingSeparator:
+    Trims a trailing backslash; leaves an interior/none-present value intact;
+    preserves a drive-root separator; returns empty/all-separator input unchanged.
+
+  Describe 6b - Test-NativeQuotingRisk:
+    Flags a value with whitespace AND a trailing backslash; nothing else.
+
+  Describe 7 - Native argument passing (real arg-echo exe, Windows only):
+    A /p: value ending in a backslash reaches the child process as one intact
+    argument, with following arguments preserved as separate argv elements.
+    Under PS 5.1, an unquotable -Property value (whitespace + trailing backslash)
+    produces a clear warning naming the property.
 #>
 
 Describe 'Resolve-RootDir' {
@@ -449,8 +465,8 @@ Describe 'Invoke-MsbuildProject' {
         -UnitSearchPath @('C:\Libs\MyLib')
     }
 
-    It 'includes /p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);C:\Libs\MyLib"' {
-      $script:capturedArgs | Should -Contain '/p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);C:\Libs\MyLib"'
+    It 'includes /p:DCC_UnitSearchPath=$(DCC_UnitSearchPath);C:\Libs\MyLib (unquoted)' {
+      $script:capturedArgs | Should -Contain '/p:DCC_UnitSearchPath=$(DCC_UnitSearchPath);C:\Libs\MyLib'
     }
 
   }
@@ -473,8 +489,8 @@ Describe 'Invoke-MsbuildProject' {
         -UnitSearchPath @('C:\Libs\A', 'C:\Libs\B')
     }
 
-    It 'includes /p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);C:\Libs\A;C:\Libs\B"' {
-      $script:capturedArgs | Should -Contain '/p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);C:\Libs\A;C:\Libs\B"'
+    It 'includes /p:DCC_UnitSearchPath=$(DCC_UnitSearchPath);C:\Libs\A;C:\Libs\B (unquoted)' {
+      $script:capturedArgs | Should -Contain '/p:DCC_UnitSearchPath=$(DCC_UnitSearchPath);C:\Libs\A;C:\Libs\B'
     }
 
   }
@@ -544,8 +560,8 @@ Describe 'Invoke-MsbuildProject' {
         -Define      @('MYFLAG')
     }
 
-    It 'includes /p:DCC_Define="$(DCC_Define);MYFLAG"' {
-      $script:capturedArgs | Should -Contain '/p:DCC_Define="$(DCC_Define);MYFLAG"'
+    It 'includes /p:DCC_Define=$(DCC_Define);MYFLAG (unquoted)' {
+      $script:capturedArgs | Should -Contain '/p:DCC_Define=$(DCC_Define);MYFLAG'
     }
 
   }
@@ -568,8 +584,8 @@ Describe 'Invoke-MsbuildProject' {
         -Define      @('MYFLAG', 'USE_JEDI_JCL')
     }
 
-    It 'includes /p:DCC_Define="$(DCC_Define);MYFLAG;USE_JEDI_JCL"' {
-      $script:capturedArgs | Should -Contain '/p:DCC_Define="$(DCC_Define);MYFLAG;USE_JEDI_JCL"'
+    It 'includes /p:DCC_Define=$(DCC_Define);MYFLAG;USE_JEDI_JCL (unquoted)' {
+      $script:capturedArgs | Should -Contain '/p:DCC_Define=$(DCC_Define);MYFLAG;USE_JEDI_JCL'
     }
 
   }
@@ -655,7 +671,7 @@ Describe 'Invoke-MsbuildProject' {
 
   }
 
-  Context 'Property value containing spaces is quoted' {
+  Context 'Property value containing spaces is passed verbatim (unquoted)' {
 
     BeforeAll {
       $script:capturedArgs = $null
@@ -673,13 +689,13 @@ Describe 'Invoke-MsbuildProject' {
         -Property    @{ _EnvLibraryPath = 'C:\Program Files\Lib' }
     }
 
-    It 'includes /p:_EnvLibraryPath="C:\Program Files\Lib"' {
-      $script:capturedArgs | Should -Contain '/p:_EnvLibraryPath="C:\Program Files\Lib"'
+    It 'includes /p:_EnvLibraryPath=C:\Program Files\Lib (unquoted)' {
+      $script:capturedArgs | Should -Contain '/p:_EnvLibraryPath=C:\Program Files\Lib'
     }
 
   }
 
-  Context 'Property value containing semicolons is quoted' {
+  Context 'Property value containing semicolons is passed verbatim (unquoted)' {
 
     BeforeAll {
       $script:capturedArgs = $null
@@ -697,8 +713,8 @@ Describe 'Invoke-MsbuildProject' {
         -Property    @{ DCC_ResourcePath = 'C:\A;C:\B' }
     }
 
-    It 'includes /p:DCC_ResourcePath="C:\A;C:\B"' {
-      $script:capturedArgs | Should -Contain '/p:DCC_ResourcePath="C:\A;C:\B"'
+    It 'includes /p:DCC_ResourcePath=C:\A;C:\B (unquoted)' {
+      $script:capturedArgs | Should -Contain '/p:DCC_ResourcePath=C:\A;C:\B'
     }
 
   }
@@ -782,7 +798,7 @@ Describe 'Invoke-MsbuildProject' {
 
   }
 
-  Context 'EnvLibraryPath adds quoted /p:_EnvLibraryPath' {
+  Context 'EnvLibraryPath adds /p:_EnvLibraryPath (unquoted)' {
 
     BeforeAll {
       $script:capturedArgs = $null
@@ -800,8 +816,8 @@ Describe 'Invoke-MsbuildProject' {
         -EnvLibraryPath  'C:\Program Files\Lib'
     }
 
-    It 'includes /p:_EnvLibraryPath="C:\Program Files\Lib"' {
-      $script:capturedArgs | Should -Contain '/p:_EnvLibraryPath="C:\Program Files\Lib"'
+    It 'includes /p:_EnvLibraryPath=C:\Program Files\Lib (unquoted)' {
+      $script:capturedArgs | Should -Contain '/p:_EnvLibraryPath=C:\Program Files\Lib'
     }
 
   }
@@ -825,6 +841,78 @@ Describe 'Invoke-MsbuildProject' {
 
     It 'no argument contains _EnvLibraryPath' {
       ($script:capturedArgs | Where-Object { $_ -like '*_EnvLibraryPath*' }) | Should -BeNullOrEmpty
+    }
+
+  }
+
+  Context 'EnvLibraryPath trailing backslash is trimmed' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile     'C:\Projects\MyApp.dproj' `
+        -Platform        'Win32' `
+        -Config          'Debug' `
+        -Target          'Build' `
+        -Verbosity       'normal' `
+        -EnvLibraryPath  'C:\Lib\'
+    }
+
+    It 'includes /p:_EnvLibraryPath=C:\Lib (trailing separator removed)' {
+      $script:capturedArgs | Should -Contain '/p:_EnvLibraryPath=C:\Lib'
+    }
+
+  }
+
+  Context 'EnvLibraryPath drive-root separator is preserved' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile     'C:\Projects\MyApp.dproj' `
+        -Platform        'Win32' `
+        -Config          'Debug' `
+        -Target          'Build' `
+        -Verbosity       'normal' `
+        -EnvLibraryPath  'C:\'
+    }
+
+    It 'includes /p:_EnvLibraryPath=C:\ (drive root kept)' {
+      $script:capturedArgs | Should -Contain '/p:_EnvLibraryPath=C:\'
+    }
+
+  }
+
+  Context 'UnitSearchPath trailing backslash on each entry is trimmed' {
+
+    BeforeAll {
+      $script:capturedArgs = $null
+      Mock Invoke-MsbuildExe {
+        $script:capturedArgs = $Arguments
+        return [pscustomobject]@{ ExitCode = 0; Output = '' }
+      }
+
+      Invoke-MsbuildProject `
+        -ProjectFile    'C:\Projects\MyApp.dproj' `
+        -Platform       'Win32' `
+        -Config         'Debug' `
+        -Target         'Build' `
+        -Verbosity      'normal' `
+        -UnitSearchPath @('C:\Libs\A\', 'C:\Libs\B\')
+    }
+
+    It 'includes /p:DCC_UnitSearchPath=$(DCC_UnitSearchPath);C:\Libs\A;C:\Libs\B (no trailing separators)' {
+      $script:capturedArgs | Should -Contain '/p:DCC_UnitSearchPath=$(DCC_UnitSearchPath);C:\Libs\A;C:\Libs\B'
     }
 
   }
@@ -1043,6 +1131,27 @@ Describe 'Main flow -- pre-MSBuild validation (no MSBuild invoked)' {
 
   }
 
+  Context 'exits 2 when -MsbuildPath is a directory (not a file)' {
+
+    BeforeAll {
+      # A directory exists on disk but is not an msbuild.exe.  Without -PathType
+      # Leaf the Test-Path guard would accept it and fail later with a worse error.
+      $script:result = Invoke-ToolProcess -ScriptPath $script:scriptPath -Arguments @(
+        '-ProjectFile', 'C:\Fake\MyApp.dproj',
+        '-MsbuildPath', ([System.IO.Path]::GetTempPath())
+      )
+    }
+
+    It 'exit code is 2' {
+      $script:result.ExitCode | Should -Be 2
+    }
+
+    It 'stderr mentions the missing MSBuild executable' {
+      $script:result.StdErr -join ' ' | Should -Match 'MSBuild executable not found'
+    }
+
+  }
+
   Context '-SkipRsvars bypasses the rootDir/rsvars requirement' {
 
     BeforeAll {
@@ -1067,6 +1176,270 @@ Describe 'Main flow -- pre-MSBuild validation (no MSBuild invoked)' {
 
     It 'stderr does not mention rsvars.bat' {
       $script:result.StdErr -join ' ' | Should -Not -Match 'rsvars\.bat'
+    }
+
+  }
+
+}
+
+Describe 'Get-PathWithoutTrailingSeparator' {
+
+  BeforeAll {
+    . "$PSScriptRoot/TestHelpers.ps1"
+    . (Get-MsBuildScriptPath)
+  }
+
+  It 'trims a single trailing backslash' {
+    Get-PathWithoutTrailingSeparator 'C:\Lib\' | Should -Be 'C:\Lib'
+  }
+
+  It 'trims multiple trailing backslashes' {
+    Get-PathWithoutTrailingSeparator 'C:\Lib\\' | Should -Be 'C:\Lib'
+  }
+
+  It 'leaves a value with no trailing separator unchanged' {
+    Get-PathWithoutTrailingSeparator 'C:\Lib' | Should -Be 'C:\Lib'
+  }
+
+  It 'preserves a drive-root separator' {
+    Get-PathWithoutTrailingSeparator 'C:\' | Should -Be 'C:\'
+  }
+
+  It 'returns an empty string unchanged' {
+    Get-PathWithoutTrailingSeparator '' | Should -Be ''
+  }
+
+  It 'returns an all-separator value unchanged' {
+    Get-PathWithoutTrailingSeparator '\\' | Should -Be '\\'
+  }
+
+}
+
+Describe 'Test-NativeQuotingRisk' {
+
+  BeforeAll {
+    . "$PSScriptRoot/TestHelpers.ps1"
+    . (Get-MsBuildScriptPath)
+  }
+
+  It 'flags a value with a space and a trailing backslash' {
+    Test-NativeQuotingRisk 'C:\Program Files\Lib\' | Should -BeTrue
+  }
+
+  It 'flags a value with a space and multiple trailing backslashes' {
+    Test-NativeQuotingRisk 'C:\Program Files\Lib\\' | Should -BeTrue
+  }
+
+  It 'does not flag a trailing backslash without whitespace' {
+    Test-NativeQuotingRisk 'C:\Lib\' | Should -BeFalse
+  }
+
+  It 'does not flag whitespace without a trailing backslash' {
+    Test-NativeQuotingRisk 'C:\Program Files\Lib' | Should -BeFalse
+  }
+
+  It 'does not flag a plain value' {
+    Test-NativeQuotingRisk 'DEBUG;CI' | Should -BeFalse
+  }
+
+}
+
+Describe 'Native argument passing (real arg-echo exe)' {
+
+  # Compile a tiny native console app that prints each argv element on its own
+  # line, prefixed 'ARG:'.  This exercises the real PowerShell-array -> command
+  # line -> CommandLineToArgvW -> child-argv path that Invoke-MsbuildExe uses, so
+  # a value ending in a backslash (or containing a space) is verified end-to-end
+  # rather than by asserting the shape of the argument string.
+  #
+  # Requires the .NET Framework C# compiler (csc.exe); on machines/CI without it
+  # (e.g. Linux runners) every test here skips.  Evaluated at Pester discovery
+  # time so -Skip: can capture it.
+  $frameworkRoots = @(
+    (Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'),
+    (Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe')
+  )
+  $cscDiscover  = if ($env:WINDIR) { $frameworkRoots | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1 } else { $null }
+  $skipNative   = -not $cscDiscover
+
+  # Windows PowerShell 5.1, located via its fixed path (see WindowsPS51Compat.Tests.ps1).
+  $ps51Discover = if ($env:SystemRoot) {
+    [System.IO.Path]::Combine($env:SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+  } else { $null }
+  $skipPs51 = $skipNative -or -not ($ps51Discover -and (Test-Path -LiteralPath $ps51Discover))
+
+  BeforeAll {
+    . "$PSScriptRoot/TestHelpers.ps1"
+    . (Get-MsBuildScriptPath)
+    $script:scriptPath = Get-MsBuildScriptPath
+
+    $script:csc = $null
+    if ($env:WINDIR) {
+      $script:csc = @(
+        (Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'),
+        (Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe')
+      ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    }
+
+    $script:winPS51Exe = $null
+    if ($env:SystemRoot) {
+      $candidate = [System.IO.Path]::Combine($env:SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+      if (Test-Path -LiteralPath $candidate) { $script:winPS51Exe = $candidate }
+    }
+
+    $script:workDir = Join-Path ([System.IO.Path]::GetTempPath()) ("dmb-native-" + [guid]::NewGuid().ToString('N'))
+    $null = New-Item -ItemType Directory -Path $script:workDir -Force
+
+    $script:argEchoExe = $null
+    if ($script:csc) {
+      $src = Join-Path $script:workDir 'ArgEcho.cs'
+      $exe = Join-Path $script:workDir 'ArgEcho.exe'
+      $code = @'
+using System;
+class ArgEcho {
+  static int Main(string[] args) {
+    foreach (var a in args) { Console.Out.WriteLine("ARG:" + a); }
+    return 0;
+  }
+}
+'@
+      Set-Content -LiteralPath $src -Value $code -Encoding UTF8
+      & $script:csc /nologo "/out:$exe" $src | Out-Null
+      if (Test-Path -LiteralPath $exe) { $script:argEchoExe = $exe }
+    }
+
+    # A real project file on disk so the top-level script passes its Test-Path
+    # check (used by the PS 5.1 end-to-end case).
+    $script:dummyProj = Join-Path $script:workDir 'MyApp.dproj'
+    Set-Content -LiteralPath $script:dummyProj -Value '<Project/>' -Encoding UTF8
+
+    # Helper: extract the 'ARG:'-prefixed lines emitted by the arg-echo exe.
+    function script:Get-EchoedArgs {
+      param([string]$Text)
+      return @(($Text -split "`r?`n") | Where-Object { $_ -like 'ARG:*' } | ForEach-Object { $_.Substring(4) })
+    }
+  }
+
+  AfterAll {
+    if ($script:workDir -and (Test-Path -LiteralPath $script:workDir)) {
+      Remove-Item -LiteralPath $script:workDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+  }
+
+  Context 'PowerShell 7 host: value with a space and trailing backslash reaches the child intact' {
+
+    BeforeAll {
+      if (-not $script:argEchoExe) { return }
+      # EnvLibraryPath value has BOTH a space and a trailing backslash -- the worst
+      # case for the old hand-quoting.  The trailing separator is trimmed; the
+      # remaining value must arrive as a single argv element, quotes and boundary
+      # intact, with the following built-in arguments preserved separately.
+      $r = Invoke-MsbuildProject `
+        -ProjectFile    $script:dummyProj `
+        -Platform       'Win32' `
+        -Config         'Release' `
+        -Target         'Build' `
+        -Verbosity      'minimal' `
+        -MsbuildPath    $script:argEchoExe `
+        -EnvLibraryPath 'C:\Program Files\Lib\'
+      $script:received = script:Get-EchoedArgs -Text $r.Output
+    }
+
+    It 'delivers /p:_EnvLibraryPath=C:\Program Files\Lib as one intact argument' -Skip:$skipNative {
+      $script:received | Should -Contain '/p:_EnvLibraryPath=C:\Program Files\Lib'
+    }
+
+    It 'preserves the following /p:Platform=Win32 as a separate argument' -Skip:$skipNative {
+      $script:received | Should -Contain '/p:Platform=Win32'
+    }
+
+    It 'no delivered argument contains a stray double quote' -Skip:$skipNative {
+      ($script:received | Where-Object { $_ -like '*"*' }) | Should -BeNullOrEmpty
+    }
+
+  }
+
+  Context 'Windows PowerShell 5.1 host: end-to-end script delivers the value intact' {
+
+    BeforeAll {
+      if (-not $script:argEchoExe -or -not $script:winPS51Exe) { return }
+      # Run the whole script under powershell.exe (5.1) with the arg-echo as the
+      # msbuild binary.  Invoke-MsbuildExe's `& $exe @Arguments` is then built by
+      # 5.1's own native-argument quoting -- the real target of the regression.
+      $script:ps51Result = Invoke-ToolProcess `
+        -Shell           $script:winPS51Exe `
+        -ExecutionPolicy 'Bypass' `
+        -ScriptPath      $script:scriptPath `
+        -Arguments       @(
+          '-ProjectFile', $script:dummyProj,
+          '-SkipRsvars',
+          '-MsbuildPath', $script:argEchoExe,
+          '-Platform', 'Win32',
+          '-Config', 'Release',
+          '-EnvLibraryPath', 'C:\Program Files\Lib\',
+          '-Format', 'json'
+        )
+      $jsonLine = $script:ps51Result.StdOut | Where-Object { $_.TrimStart().StartsWith('{') } | Select-Object -First 1
+      $obj = if ($jsonLine) { $jsonLine | ConvertFrom-Json } else { $null }
+      $script:ps51Received = if ($obj) { script:Get-EchoedArgs -Text $obj.output } else { @() }
+    }
+
+    It 'script exits 0 (arg-echo returns 0)' -Skip:$skipPs51 {
+      $script:ps51Result.ExitCode | Should -Be 0
+    }
+
+    It 'delivers /p:_EnvLibraryPath=C:\Program Files\Lib as one intact argument' -Skip:$skipPs51 {
+      $script:ps51Received | Should -Contain '/p:_EnvLibraryPath=C:\Program Files\Lib'
+    }
+
+    It 'preserves the following /p:Platform=Win32 as a separate argument' -Skip:$skipPs51 {
+      $script:ps51Received | Should -Contain '/p:Platform=Win32'
+    }
+
+  }
+
+  Context 'Windows PowerShell 5.1 host: warns on an unquotable -Property value' {
+
+    BeforeAll {
+      if (-not $script:argEchoExe -or -not $script:winPS51Exe) { return }
+      # A generic -Property value with BOTH a space and a trailing backslash is the
+      # one case the fix cannot make safe on PS 5.1 (its own native quoting escapes
+      # the closing quote).  The script must emit a clear warning naming the property
+      # rather than silently corrupting the argument.
+      #
+      # -Property is a [hashtable] parameter, which cannot bind from a plain -File
+      # string argument, so invoke via an EncodedCommand that dot-sources the script
+      # (the InvocationName='.' guard returns after defining the functions) and calls
+      # Invoke-MsbuildProject with a real hashtable.  Single-quoted PowerShell string
+      # literals carry the trailing backslash safely into the call; the hazard under
+      # test is the *native* command line msbuild.exe receives, not this literal.
+      $inner = ". '$($script:scriptPath)'; " +
+               "Invoke-MsbuildProject -ProjectFile '$($script:dummyProj)' -Platform Win32 -Config Release " +
+               "-Target Build -Verbosity minimal -MsbuildPath '$($script:argEchoExe)' " +
+               "-Property @{ DCC_ResourcePath = 'C:\Program Files\Res\' } | Out-Null"
+      $enc = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($inner))
+
+      $psi = [System.Diagnostics.ProcessStartInfo]::new()
+      $psi.FileName = $script:winPS51Exe
+      foreach ($a in @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $enc)) {
+        [void]$psi.ArgumentList.Add($a)
+      }
+      $psi.RedirectStandardOutput = $true
+      $psi.RedirectStandardError  = $true
+      $psi.UseShellExecute        = $false
+
+      $p = [System.Diagnostics.Process]::new()
+      $p.StartInfo = $psi
+      [void]$p.Start()
+      $errTask = $p.StandardError.ReadToEndAsync()
+      $null = $p.StandardOutput.ReadToEndAsync()
+      $p.WaitForExit()
+      $script:ps51WarnText = $errTask.GetAwaiter().GetResult()
+    }
+
+    It 'emits a warning naming the property and the backslash hazard' -Skip:$skipPs51 {
+      $script:ps51WarnText | Should -Match 'DCC_ResourcePath'
+      $script:ps51WarnText | Should -Match 'backslash'
     }
 
   }

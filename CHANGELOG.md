@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.6]
+
+- Fix native-argument quoting for `/p:` values ending in a backslash. Values
+  (`-EnvLibraryPath`, `-UnitSearchPath`, `-Define`, `-Property`) are no longer
+  hand-quoted, so a trailing backslash no longer escapes a closing quote and
+  corrupts the argument boundary; a trailing separator on path values is trimmed.
+  On Windows PowerShell 5.1 a `-Property` value that both contains whitespace and
+  ends in a backslash (the one case 5.1's own quoting cannot pass safely) now
+  produces a clear warning naming the property instead of silently corrupting.
+  `-MsbuildPath` now rejects a directory (`-PathType Leaf`). Adds a real
+  native arg-echo regression test under both Windows PowerShell 5.1 and PowerShell 7.
+  A follow-up to pass properties via an MSBuild response file is tracked in
+  [#25](https://github.com/continuous-delphi/delphi-msbuild/issues/25).
+  [#24](https://github.com/continuous-delphi/delphi-msbuild/issues/24)
+
 ## [1.2.5] - 2026-07-21
 
 - New parameters to complete custom build server usage
