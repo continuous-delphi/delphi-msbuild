@@ -1,0 +1,6 @@
+# Tickets for the delphi-msbuild project
+# Repo remote url: https://github.com/continuous-delphi/delphi-msbuild
+# File used by create-github-issues.ps1
+# dev-automation-tooling script & document reference: C:\code\dev-automation-tooling
+
+---

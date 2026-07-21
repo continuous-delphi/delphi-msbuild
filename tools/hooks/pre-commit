@@ -1,0 +1,18 @@
+#!/bin/sh
+# Pre-commit hook: bump the 3rd version number (patch/sequence)
+# The 3rd number is the monotonic commit count -- never resets across major/minor bumps.
+#
+# Uses Invoke-DelphiIncVer from delphi-powershell-ci.
+# Pattern matches the 3-part version string 
+
+pwsh -NoProfile -Command '
+  $result = Invoke-DelphiIncVer -File "source/delphi-msbuild.ps1" -IncverTarget "Text" -IncverStyle "WinVer" -IncverPart "patch"  -IncverPattern "\`$script:Version\s*=\s*\x27(\d+\.\d+\.\d+)\x27"
+  if (-not $result.Success) {
+    Write-Error "IncVer failed: $($result.Message)"
+    exit 1
+  }
+  Write-Host "Version: $($result.OldVersion) -> $($result.NewVersion)"
+'
+
+# Stage the version file so it's included in the commit.
+git add source/delphi-msbuild.ps1
