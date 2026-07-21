@@ -2,7 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.4] - 2026-07-21
+## [1.2.5] - 2026-07-21
+
+- New parameters to complete custom build server usage
+  - `/p:` property pass-through
+  - `-BuildAllUnits`/`-EnvLibraryPath` switches
+  - `-SkipRsvars`/`-MsbuildPath` mode for caller-managed environments.
+
+### [1.1.4]
 
 - Add `-SkipRsvars` switch to build using the caller's current process
   environment instead of requiring and sourcing `rsvars.bat` (for
@@ -11,7 +18,7 @@ All notable changes to this project will be documented in this file.
   explicit per-era .NET Framework selection). Default behavior is unchanged.
   [#23](https://github.com/continuous-delphi/delphi-msbuild/issues/23)
 
-## [1.1.3] - 2026-07-21
+### [1.1.3]
 
 - Add `-BuildAllUnits` switch (`/p:DCC_BuildAllUnits=true`) and `-EnvLibraryPath`
   (`/p:_EnvLibraryPath="..."`) first-class shortcuts for two properties the older
@@ -19,7 +26,7 @@ All notable changes to this project will be documented in this file.
   `-Property` entry still overrides them.
   [#22](https://github.com/continuous-delphi/delphi-msbuild/issues/22)
 
-## [1.1.2] - 2026-07-21
+### [1.1.2]
 
 - Add `-Property` parameter: pass arbitrary MSBuild properties through as
   `/p:Key=Value` (e.g. `DCC_BuildAllUnits`, `_EnvLibraryPath`,
