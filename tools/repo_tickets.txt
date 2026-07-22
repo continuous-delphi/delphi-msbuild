@@ -180,6 +180,7 @@ lock in the buggy shape.
 ---
 Title: Pass MSBuild /p: properties via a response file to bypass command-line quoting
 Issue: #25
+Status: closed
 Labels: enhancement
 Body:
 ## Background

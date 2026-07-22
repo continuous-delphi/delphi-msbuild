@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.8]
+
+- Pass the `/p:` property set to MSBuild through a temporary response file
+  (`@file`) instead of as individual command-line arguments. A response file is
+  read by MSBuild's own tokenizer, not `CommandLineToArgvW`, so property values
+  reach MSBuild identically under Windows PowerShell 5.1 and PowerShell 7.
+  This fixes a regression from 1.2.6: an *unquoted* `/p:DCC_Define=$(DCC_Define);CI`
+  made MSBuild split the value on `;` and fail with `MSB1006: Property is not
+  valid. Switch: CI`, breaking `-Define` (and `-UnitSearchPath`) with more than a
+  base value. Values containing whitespace, a semicolon, or a quote are now quoted
+  in the response file, and a trailing backslash run before a quote is doubled so
+  it cannot escape the closing quote. The 1.2.6 Windows PowerShell 5.1 warning for
+  an unquotable `-Property` value is removed -- the response file makes that value
+  safe on every host. Replaces the `Test-NativeQuotingRisk` helper with
+  `ConvertTo-MsbuildResponseValue` / `Get-MsbuildResponseLines`.
+  [#25](https://github.com/continuous-delphi/delphi-msbuild/issues/25)
+
 ## [1.2.7]
 
 - Fix Linux CI: the native arg-echo test built its `csc.exe` candidate paths

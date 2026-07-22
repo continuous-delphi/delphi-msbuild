@@ -23,6 +23,33 @@ function Get-ScriptUnderTestPath {
 # Named alias used in delphi-msbuild.Tests.ps1 for readability.
 function Get-MsBuildScriptPath { Get-ScriptUnderTestPath }
 
+# Expand an Invoke-MsbuildExe argument array into the logical argument list the
+# build represents, inlining any @responseFile into the /p: lines it contains.
+# Invoke-MsbuildProject now passes the /p: set through a temporary response file
+# (@file) instead of as individual command-line arguments, so tests that assert on
+# the emitted /p: switches read the file's lines here.  The response file still
+# exists while the mocked Invoke-MsbuildExe runs (Invoke-MsbuildProject deletes it
+# in a finally after the call returns), so it can be read at capture time.
+function Expand-MsbuildResponseArgs {
+  param([string[]]$Arguments)
+
+  $out = New-Object System.Collections.Generic.List[string]
+  foreach ($a in $Arguments) {
+    if ($a -like '@*') {
+      $file = $a.Substring(1)
+      if (Test-Path -LiteralPath $file) {
+        foreach ($line in (Get-Content -LiteralPath $file)) {
+          if (-not [string]::IsNullOrWhiteSpace($line)) { [void]$out.Add($line) }
+        }
+      }
+    }
+    else {
+      [void]$out.Add($a)
+    }
+  }
+  return $out.ToArray()
+}
+
 function Invoke-ToolProcess {
   param(
     [Parameter(Mandatory=$true)][string]$ScriptPath,
