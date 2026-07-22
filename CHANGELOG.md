@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.11] 2026-07-21
+
+- Hardened parameter passing, fixed regression in 1.2.6
+
 ## [1.2.9]
 
 - Fix `-Define` and `-UnitSearchPath` clobbering the project's config-scoped
