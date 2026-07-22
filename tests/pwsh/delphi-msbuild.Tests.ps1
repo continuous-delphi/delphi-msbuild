@@ -29,12 +29,11 @@
     Returns the result object from Invoke-MsbuildExe.
     ExeOutputDir adds /p:DCC_ExeOutput; omitted adds nothing.
     DcuOutputDir adds /p:DCC_DcuOutput; omitted adds nothing.
-    UnitSearchPath single entry appends with $(DCC_UnitSearchPath) prefix.
-    UnitSearchPath multiple entries joined with semicolons.
-    UnitSearchPath omitted adds no /p:DCC_UnitSearchPath argument.
-    Omits /p:DCC_Define when no defines are supplied.
-    Appends /p:DCC_Define with $(DCC_Define) prefix for a single define.
-    Appends /p:DCC_Define with $(DCC_Define) prefix for multiple defines.
+    UnitSearchPath (single/multiple) is passed via the DCC_UnitSearchPath env var,
+    joined with semicolons, trailing separators trimmed; omitted sets no env var.
+    Define (single/multiple) is passed via the DCC_Define env var, joined with
+    semicolons; omitted sets no env var.  (Append-style props go via env vars, not
+    /p:, so the project's config-scoped values are preserved -- see #26.)
     Property omitted adds no extra /p: line.
     Property single entry becomes /p:Key=Value (verbatim when clean).
     Property multiple entries emitted in sorted key order.
@@ -227,6 +226,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedShowOutput = $false
       Mock Invoke-MsbuildExe {
         $script:capturedArgs       = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv  = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv     = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         $script:capturedShowOutput = [bool]$ShowOutput
         return [pscustomobject]@{ ExitCode = 0; Output = 'build ok' }
       }
@@ -291,6 +292,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -338,6 +341,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -361,6 +366,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -385,6 +392,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -408,6 +417,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -432,6 +443,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -449,12 +462,14 @@ Describe 'Invoke-MsbuildProject' {
 
   }
 
-  Context 'UnitSearchPath single entry appends with $(DCC_UnitSearchPath) prefix' {
+  Context 'UnitSearchPath single entry is passed via the DCC_UnitSearchPath env var' {
 
     BeforeAll {
-      $script:capturedArgs = $null
+      $script:capturedUspEnv = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -467,18 +482,24 @@ Describe 'Invoke-MsbuildProject' {
         -UnitSearchPath @('C:\Libs\MyLib')
     }
 
-    It 'includes /p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);C:\Libs\MyLib" (quoted for the semicolon)' {
-      $script:capturedArgs | Should -Contain '/p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);C:\Libs\MyLib"'
+    It 'sets DCC_UnitSearchPath env var to C:\Libs\MyLib' {
+      $script:capturedUspEnv | Should -Be 'C:\Libs\MyLib'
+    }
+
+    It 'does not emit a /p:DCC_UnitSearchPath response-file line' {
+      ($script:capturedArgs | Where-Object { $_ -like '*DCC_UnitSearchPath*' }) | Should -BeNullOrEmpty
     }
 
   }
 
-  Context 'UnitSearchPath multiple entries are joined with semicolons' {
+  Context 'UnitSearchPath multiple entries are joined with semicolons in the env var' {
 
     BeforeAll {
-      $script:capturedArgs = $null
+      $script:capturedUspEnv = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -491,18 +512,20 @@ Describe 'Invoke-MsbuildProject' {
         -UnitSearchPath @('C:\Libs\A', 'C:\Libs\B')
     }
 
-    It 'includes /p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);C:\Libs\A;C:\Libs\B" (quoted for the semicolons)' {
-      $script:capturedArgs | Should -Contain '/p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);C:\Libs\A;C:\Libs\B"'
+    It 'sets DCC_UnitSearchPath env var to C:\Libs\A;C:\Libs\B' {
+      $script:capturedUspEnv | Should -Be 'C:\Libs\A;C:\Libs\B'
     }
 
   }
 
-  Context 'UnitSearchPath omitted adds no /p:DCC_UnitSearchPath argument' {
+  Context 'UnitSearchPath omitted sets no DCC_UnitSearchPath env var' {
 
     BeforeAll {
-      $script:capturedArgs = $null
+      $script:capturedUspEnv = 'sentinel'
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -512,6 +535,10 @@ Describe 'Invoke-MsbuildProject' {
         -Config      'Debug' `
         -Target      'Build' `
         -Verbosity   'normal'
+    }
+
+    It 'leaves the DCC_UnitSearchPath env var unset' {
+      $script:capturedUspEnv | Should -BeNullOrEmpty
     }
 
     It 'no argument contains DCC_UnitSearchPath' {
@@ -520,12 +547,14 @@ Describe 'Invoke-MsbuildProject' {
 
   }
 
-  Context 'omits /p:DCC_Define when no -Define values are supplied' {
+  Context 'omits the DCC_Define env var when no -Define values are supplied' {
 
     BeforeAll {
-      $script:capturedArgs = $null
+      $script:capturedDefineEnv = 'sentinel'
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -537,19 +566,24 @@ Describe 'Invoke-MsbuildProject' {
         -Verbosity   'normal'
     }
 
+    It 'leaves the DCC_Define env var unset' {
+      $script:capturedDefineEnv | Should -BeNullOrEmpty
+    }
+
     It 'does not include any /p:DCC_Define argument' {
-      $script:capturedArgs | Should -Not -Contain { $_ -like '/p:DCC_Define=*' }
       ($script:capturedArgs | Where-Object { $_ -like '/p:DCC_Define=*' }) | Should -BeNullOrEmpty
     }
 
   }
 
-  Context 'appends /p:DCC_Define with $(DCC_Define) prefix for a single define' {
+  Context 'passes a single define via the DCC_Define env var' {
 
     BeforeAll {
-      $script:capturedArgs = $null
+      $script:capturedDefineEnv = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -562,18 +596,24 @@ Describe 'Invoke-MsbuildProject' {
         -Define      @('MYFLAG')
     }
 
-    It 'includes /p:DCC_Define="$(DCC_Define);MYFLAG" (quoted for the semicolon)' {
-      $script:capturedArgs | Should -Contain '/p:DCC_Define="$(DCC_Define);MYFLAG"'
+    It 'sets DCC_Define env var to MYFLAG' {
+      $script:capturedDefineEnv | Should -Be 'MYFLAG'
+    }
+
+    It 'does not emit a /p:DCC_Define response-file line' {
+      ($script:capturedArgs | Where-Object { $_ -like '*DCC_Define*' }) | Should -BeNullOrEmpty
     }
 
   }
 
-  Context 'appends /p:DCC_Define with $(DCC_Define) prefix for multiple defines' {
+  Context 'passes multiple defines joined with semicolons via the DCC_Define env var' {
 
     BeforeAll {
-      $script:capturedArgs = $null
+      $script:capturedDefineEnv = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -586,8 +626,8 @@ Describe 'Invoke-MsbuildProject' {
         -Define      @('MYFLAG', 'USE_JEDI_JCL')
     }
 
-    It 'includes /p:DCC_Define="$(DCC_Define);MYFLAG;USE_JEDI_JCL" (quoted for the semicolons)' {
-      $script:capturedArgs | Should -Contain '/p:DCC_Define="$(DCC_Define);MYFLAG;USE_JEDI_JCL"'
+    It 'sets DCC_Define env var to MYFLAG;USE_JEDI_JCL' {
+      $script:capturedDefineEnv | Should -Be 'MYFLAG;USE_JEDI_JCL'
     }
 
   }
@@ -598,6 +638,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -621,6 +663,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -645,6 +689,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -679,6 +725,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -703,6 +751,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -727,6 +777,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -759,6 +811,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -783,6 +837,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -806,6 +862,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -830,6 +888,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -853,6 +913,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -877,6 +939,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -895,12 +959,14 @@ Describe 'Invoke-MsbuildProject' {
 
   }
 
-  Context 'UnitSearchPath trailing backslash on each entry is trimmed' {
+  Context 'UnitSearchPath trailing backslash on each entry is trimmed in the env var' {
 
     BeforeAll {
-      $script:capturedArgs = $null
+      $script:capturedUspEnv = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -913,8 +979,8 @@ Describe 'Invoke-MsbuildProject' {
         -UnitSearchPath @('C:\Libs\A\', 'C:\Libs\B\')
     }
 
-    It 'includes /p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);C:\Libs\A;C:\Libs\B" (no trailing separators, quoted for the semicolons)' {
-      $script:capturedArgs | Should -Contain '/p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);C:\Libs\A;C:\Libs\B"'
+    It 'sets DCC_UnitSearchPath env var to C:\Libs\A;C:\Libs\B (no trailing separators)' {
+      $script:capturedUspEnv | Should -Be 'C:\Libs\A;C:\Libs\B'
     }
 
   }
@@ -925,6 +991,8 @@ Describe 'Invoke-MsbuildProject' {
       $script:capturedArgs = $null
       Mock Invoke-MsbuildExe {
         $script:capturedArgs = Expand-MsbuildResponseArgs $Arguments
+        $script:capturedDefineEnv = [Environment]::GetEnvironmentVariable('DCC_Define', 'Process')
+        $script:capturedUspEnv    = [Environment]::GetEnvironmentVariable('DCC_UnitSearchPath', 'Process')
         return [pscustomobject]@{ ExitCode = 0; Output = '' }
       }
 
@@ -1259,6 +1327,45 @@ Describe 'ConvertTo-MsbuildResponseValue' {
 
   It 'leaves interior backslashes (not before a quote) single inside quotes' {
     ConvertTo-MsbuildResponseValue 'C:\a b\c' | Should -Be '"C:\a b\c"'
+  }
+
+}
+
+Describe 'Get-DccAppendEnv' {
+
+  BeforeAll {
+    . "$PSScriptRoot/TestHelpers.ps1"
+    . (Get-MsBuildScriptPath)
+  }
+
+  It 'returns an empty map when neither Define nor UnitSearchPath is supplied' {
+    (Get-DccAppendEnv).Count | Should -Be 0
+  }
+
+  It 'maps a single define to DCC_Define' {
+    (Get-DccAppendEnv -Define @('CI'))['DCC_Define'] | Should -Be 'CI'
+  }
+
+  It 'joins multiple defines with semicolons' {
+    (Get-DccAppendEnv -Define @('CI', 'MYFLAG'))['DCC_Define'] | Should -Be 'CI;MYFLAG'
+  }
+
+  It 'maps UnitSearchPath to DCC_UnitSearchPath, joined with semicolons' {
+    (Get-DccAppendEnv -UnitSearchPath @('C:\A', 'C:\B'))['DCC_UnitSearchPath'] | Should -Be 'C:\A;C:\B'
+  }
+
+  It 'trims a trailing separator on each UnitSearchPath entry' {
+    (Get-DccAppendEnv -UnitSearchPath @('C:\A\', 'C:\B\'))['DCC_UnitSearchPath'] | Should -Be 'C:\A;C:\B'
+  }
+
+  It 'omits DCC_Define when only UnitSearchPath is supplied' {
+    (Get-DccAppendEnv -UnitSearchPath @('C:\A')).Contains('DCC_Define') | Should -BeFalse
+  }
+
+  It 'returns both keys when both are supplied' {
+    $e = Get-DccAppendEnv -Define @('CI') -UnitSearchPath @('C:\A')
+    $e['DCC_Define']         | Should -Be 'CI'
+    $e['DCC_UnitSearchPath'] | Should -Be 'C:\A'
   }
 
 }

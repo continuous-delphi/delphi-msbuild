@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.9]
+
+- Fix `-Define` and `-UnitSearchPath` clobbering the project's config-scoped
+  values. They were passed as `/p:DCC_Define="$(DCC_Define);..."` global MSBuild
+  properties, which *override* rather than extend the project's
+  `<DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>` config PropertyGroup -- so `DEBUG`
+  was dropped and the `$(DCC_Define)` self-reference collapsed to a stray token
+  (the compiler saw a bogus `$` define, not `DEBUG;CI`). These two append-style
+  properties are now passed as the `DCC_Define` / `DCC_UnitSearchPath` **environment
+  variables** (lowest MSBuild precedence), so the project's config PropertyGroup runs
+  and its `$(...)` self-reference resolves against them -- preserving the project's
+  own defines/paths and appending the supplied ones. Prior env values are restored
+  after the build. Override-style properties still go through the response file.
+  Adds `Get-DccAppendEnv`. [#26](https://github.com/continuous-delphi/delphi-msbuild/issues/26)
+
 ## [1.2.8]
 
 - Pass the `/p:` property set to MSBuild through a temporary response file

@@ -221,3 +221,55 @@ minimum to `-Property` and the path-typed values.  The project file, `/t:`, `/v:
       (verified by the native arg-echo regression harness added in #24)
 - [ ] The PS 5.1 warning added in #24 is removed once the response-file path makes it
       unnecessary
+
+---
+Title: -Define / -UnitSearchPath clobber the project's config-scoped values (global /p: override)
+Issue: #26
+Status: closed
+Labels: bug
+Body:
+## Problem
+
+`-Define` and `-UnitSearchPath` are documented (README) as ADDITIVE: they emit
+`/p:DCC_Define="$(DCC_Define);CI"` and `/p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);..."`,
+and the README states the `$(...)` prefix "preserves the defines/paths already set by the
+project's PropertyGroups". In practice they do the opposite.
+
+A standard Delphi project sets these in a CONFIG-conditional PropertyGroup, e.g.
+`<DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>` under `Condition="'$(Config)'=='Debug'"`.
+Passing `/p:DCC_Define=...` makes DCC_Define a GLOBAL MSBuild property, and a global
+property OVERRIDES a project PropertyGroup assignment -- so the config's `DEBUG` is never
+prepended, and the `$(DCC_Define)` self-reference cannot resolve (it collapses to a stray
+`$` token). Verified against msbuild.exe with a minimal project mirroring the pattern:
+
+    A) global /p:DCC_Define="$(DCC_Define);CI"  -> effective DCC_Define = [$(DCC_Define);CI]  (DEBUG lost, stray token)
+    B) env var DCC_Define=CI (no /p:)           -> effective DCC_Define = [DEBUG;CI]           (correct)
+
+Impact: any MSBuild build using `-Define` silently loses the project's config defines
+(DEBUG/RELEASE) and passes a garbage define. Tests that do not depend on DEBUG still pass,
+which is why it went unnoticed. This bug predates the #24/#25 quoting work; the #25
+response-file change did not introduce it (the `$(DCC_Define);CI` global-property approach
+was always broken) but did make the semicolon crash visible, surfacing the deeper issue.
+
+## Proposed
+
+Pass the two APPEND-style DCC properties as ENVIRONMENT variables rather than global `/p:`
+properties. An environment-derived property has the LOWEST MSBuild precedence, so the
+project's config PropertyGroup runs and its `$(DCC_Define)` / `$(DCC_UnitSearchPath)`
+self-reference resolves against the env value -- yielding the documented additive result.
+
+- `-Define`         -> set process env `DCC_Define`         = (defines -join ';'); no /p:DCC_Define
+- `-UnitSearchPath` -> set process env `DCC_UnitSearchPath` = (trimmed paths -join ';'); no /p:DCC_UnitSearchPath
+- Save and restore any prior env value around the build (try/finally).
+- OVERRIDE-style properties (Config, Platform, DCC_ExeOutput, DCC_DcuOutput,
+  DCC_BuildAllUnits, _EnvLibraryPath, generic -Property) remain `/p:` via the response file.
+
+## Acceptance criteria
+
+- [ ] `-Define CI` on a project whose Debug config sets `DEBUG;$(DCC_Define)` yields an
+      effective DCC_Define of `DEBUG;CI` (DEBUG preserved, CI added, no stray token)
+- [ ] `-UnitSearchPath` likewise preserves the project's config-scoped search paths
+- [ ] DCC_Define / DCC_UnitSearchPath are no longer emitted as `/p:` (response-file) args
+- [ ] Prior values of the DCC_Define / DCC_UnitSearchPath env vars are restored after the build
+- [ ] README `-Define` / `-UnitSearchPath` sections describe the env-var mechanism
+- [ ] Verified end-to-end via a real build (radFormatterV2 BuildTest: DEBUG and CI both defined)

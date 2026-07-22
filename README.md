@@ -173,17 +173,23 @@ supplied.
 
 Additional unit search paths appended to the project's existing unit path.
 Accepts an array of path strings.  Multiple paths are joined with semicolons
-and passed as:
+(each trailing separator trimmed) and passed via the **`DCC_UnitSearchPath`
+environment variable**, not as a `/p:` property:
 
 ```text
-/p:DCC_UnitSearchPath="$(DCC_UnitSearchPath);path1;path2"
+$env:DCC_UnitSearchPath = "path1;path2"
 ```
 
-The `$(DCC_UnitSearchPath)` prefix preserves the paths already set in the
-project's PropertyGroups.  Without it, the assignment would replace them
-entirely.
+An environment variable is used instead of `/p:DCC_UnitSearchPath=...` because a
+command-line `/p:` value becomes a *global* MSBuild property that **overrides** the
+project's config-scoped `<DCC_UnitSearchPath>...;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>`
+assignment entirely -- the project's own paths would be lost.  An environment-derived
+property has the lowest precedence, so the project's PropertyGroup still runs and its
+`$(DCC_UnitSearchPath)` self-reference resolves against this value, appending your paths
+to the project's.  The env var is set only for the duration of the build and any prior
+value is restored.
 
-When omitted (or an empty array), no `/p:DCC_UnitSearchPath` argument is added.
+When omitted (or an empty array), the `DCC_UnitSearchPath` env var is not set.
 The result object's `.unitSearchPath` is `$null` when no paths are supplied.
 
 Example:
@@ -198,20 +204,26 @@ Example:
 -Define <string[]>
 ```
 
-One or more additional MSBuild defines to pass to the compiler.  When at least
-one value is supplied, the script appends the following to the MSBuild command
-line:
+One or more additional compiler defines.  When at least one value is supplied,
+the defines are joined with semicolons and passed via the **`DCC_Define`
+environment variable**, not as a `/p:` property:
 
 ```text
-/p:DCC_Define="$(DCC_Define);DEFINE1;DEFINE2"
+$env:DCC_Define = "DEFINE1;DEFINE2"
 ```
 
-The `$(DCC_Define)` prefix preserves the defines already set by the project's
-PropertyGroups (e.g. `DEBUG`, `RELEASE`).  Without it, the property assignment
-would replace them entirely.
+An environment variable is used instead of `/p:DCC_Define=...` because a command-line
+`/p:` value becomes a *global* MSBuild property that **overrides** the project's
+config-scoped `<DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>` assignment entirely -- the
+project's own defines (`DEBUG`, `RELEASE`) would be dropped and the `$(DCC_Define)`
+self-reference would collapse to a stray token.  An environment-derived property has the
+lowest MSBuild precedence, so the project's config PropertyGroup still runs and its
+`$(DCC_Define)` self-reference resolves against this value, appending your defines to the
+project's.  The env var is set only for the duration of the build and any prior value is
+restored.
 
-When no `-Define` values are supplied (the default), the `/p:DCC_Define`
-argument is omitted entirely.
+When no `-Define` values are supplied (the default), the `DCC_Define` env var is
+not set.
 
 Examples:
 
