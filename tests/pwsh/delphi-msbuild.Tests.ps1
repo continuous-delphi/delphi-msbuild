@@ -70,6 +70,12 @@
     The /p: set travels through a response file (@file); the arg-echo reads it back
     so the exact, host-independent response-file content is asserted -- including the
     #25 residual case (a -Property value with whitespace AND a trailing backslash).
+
+  Describe 8 - Get-BuildOutputDir:
+    Parses -E / -NO from the compiler-invocation line for Win32 (dcc32.exe) and
+    non-Win32 targets -- Win64 (dcc64.exe), Linux64 (dcclinux64.exe), macOS ARM64
+    (dccosxarm64.exe) -- so ExeOutputDir/DcuOutputDir populate on all platforms (#27).
+    Returns null dirs when no compiler line is present or output is empty.
 #>
 
 Describe 'Resolve-RootDir' {
@@ -1573,6 +1579,71 @@ class ArgEcho {
       $script:ps51Rsp | Should -Contain '/p:Platform=Win32'
     }
 
+  }
+
+}
+
+Describe 'Get-BuildOutputDir' {
+
+  BeforeAll {
+    . "$PSScriptRoot/TestHelpers.ps1"
+    . (Get-MsBuildScriptPath)
+
+    # Compute the expected absolute dir the same way the function does, so the
+    # assertions hold regardless of host OS path semantics (tests run on Linux CI).
+    function script:ExpectedDir([string]$Base, [string]$Rel) {
+      [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($Base, $Rel))
+    }
+
+    # A synthetic MSBuild compiler-invocation line for a given compiler exe name,
+    # with -E (exe output) and -NO (dcu output) switches, indented as MSBuild echoes it.
+    function script:DccLogLine([string]$CompilerExe, [string]$ExeRel, [string]$DcuRel) {
+      "        c:\program files (x86)\embarcadero\studio\23.0\bin\$CompilerExe -E$ExeRel -NO$DcuRel -D`$(DCC_Define) Project.dpr"
+    }
+  }
+
+  It 'parses -E / -NO from a Win32 dcc32.exe line (unchanged behavior)' {
+    $base   = 'C:\proj'
+    $output = script:DccLogLine 'dcc32.exe' '.\Win32\Debug' '.\Win32\Debug\dcu'
+    $result = Get-BuildOutputDir -Output $output -ProjectFileDir $base
+    $result.ExeOutputDir | Should -Be (script:ExpectedDir $base '.\Win32\Debug')
+    $result.DcuOutputDir | Should -Be (script:ExpectedDir $base '.\Win32\Debug\dcu')
+  }
+
+  It 'parses -E / -NO from a Win64 dcc64.exe line (the reported bug)' {
+    $base   = 'C:\proj'
+    $output = script:DccLogLine 'dcc64.exe' '.\Win64\Debug' '.\Win64\Debug\dcu'
+    $result = Get-BuildOutputDir -Output $output -ProjectFileDir $base
+    $result.ExeOutputDir | Should -Be (script:ExpectedDir $base '.\Win64\Debug')
+    $result.DcuOutputDir | Should -Be (script:ExpectedDir $base '.\Win64\Debug\dcu')
+  }
+
+  It 'parses -E / -NO from a Linux64 dcclinux64.exe line' {
+    $base   = 'C:\proj'
+    $output = script:DccLogLine 'dcclinux64.exe' '.\Linux64\Release' '.\Linux64\Release\dcu'
+    $result = Get-BuildOutputDir -Output $output -ProjectFileDir $base
+    $result.ExeOutputDir | Should -Be (script:ExpectedDir $base '.\Linux64\Release')
+    $result.DcuOutputDir | Should -Be (script:ExpectedDir $base '.\Linux64\Release\dcu')
+  }
+
+  It 'parses -E / -NO from a macOS ARM64 dccosxarm64.exe line' {
+    $base   = 'C:\proj'
+    $output = script:DccLogLine 'dccosxarm64.exe' '.\OSXARM64\Release' '.\OSXARM64\Release\dcu'
+    $result = Get-BuildOutputDir -Output $output -ProjectFileDir $base
+    $result.ExeOutputDir | Should -Be (script:ExpectedDir $base '.\OSXARM64\Release')
+    $result.DcuOutputDir | Should -Be (script:ExpectedDir $base '.\OSXARM64\Release\dcu')
+  }
+
+  It 'returns null dirs when no compiler line is present' {
+    $result = Get-BuildOutputDir -Output "Build started`nsome unrelated log`nBuild succeeded" -ProjectFileDir 'C:\proj'
+    $result.ExeOutputDir | Should -BeNull
+    $result.DcuOutputDir | Should -BeNull
+  }
+
+  It 'returns null dirs for empty output' {
+    $result = Get-BuildOutputDir -Output '' -ProjectFileDir 'C:\proj'
+    $result.ExeOutputDir | Should -BeNull
+    $result.DcuOutputDir | Should -BeNull
   }
 
 }

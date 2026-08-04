@@ -273,3 +273,66 @@ self-reference resolves against the env value -- yielding the documented additiv
 - [ ] Prior values of the DCC_Define / DCC_UnitSearchPath env vars are restored after the build
 - [ ] README `-Define` / `-UnitSearchPath` sections describe the env-var mechanism
 - [ ] Verified end-to-end via a real build (radFormatterV2 BuildTest: DEBUG and CI both defined)
+
+---
+Title: Get-BuildOutputDir returns empty ExeOutputDir/DcuOutputDir for non-Win32 platforms
+Issue: #27
+Status: closed
+Labels: bug
+Body:
+## Problem
+
+On the MSBuild path, `Invoke-DelphiBuild` returns an empty `ExeOutputDir`
+(and `DcuOutputDir`) for Win64 builds; Win32 populates both correctly. The
+same defect affects every non-Win32 target (Linux64, macOS64/ARM64, etc.).
+
+It only manifests when `-ExeOutputDir` / `-DcuOutputDir` are NOT passed
+explicitly. When the caller supplies them, the values are echoed straight
+back (source/delphi-msbuild.ps1:649-650) and are correct on all platforms.
+The bug is in the fallback path that parses the output directory from the
+captured MSBuild log.
+
+## Root cause
+
+`Get-BuildOutputDir` (source/delphi-msbuild.ps1:511) finds the Delphi
+command-line compiler invocation in the MSBuild log and reads its `-E`
+(exe output) and `-NO` (dcu output) switches. The line filter (line 521) is:
+
+    Where-Object { $_ -match '[/\\]dcc32\.exe\s' }
+
+The regex matches only `dcc32.exe` -- the Win32 compiler. MSBuild invokes a
+platform-specific compiler for every other target:
+
+    Win32   -> dcc32.exe        Win64      -> dcc64.exe
+    Linux64 -> dcclinux64.exe   macOS64    -> dccosx64.exe
+    macOSARM64 -> dccosxarm64.exe   (etc.)
+
+For a Win64 build the compiler line is `...\dcc64.exe ...`, the filter finds
+nothing, `Get-BuildOutputDir` returns early with both dirs `$null`, and that
+null propagates up to the empty `ExeOutputDir` the caller sees. Win32 works
+only because its compiler *is* named `dcc32.exe`. The `-E` / `-NO` switch
+extraction below the filter is platform-agnostic and needs no change.
+
+## Fix
+
+Broaden the compiler-line filter to match any `dcc<target>.exe`:
+
+    Where-Object { $_ -match '[/\\]dcc[^\s\\/]*\.exe\s' }
+
+Update the function's leading comment (currently "Parse the dcc32.exe
+invocation line...") and rename the `$dcc32Line` variable to reflect that it
+now matches any DCC compiler. The DCCBuild engine is unaffected (it echoes
+back the supplied `-ExeOutputDir` and never parses one from output).
+
+## Acceptance criteria
+
+- [ ] `Get-BuildOutputDir` parses a synthetic `dcc64.exe` log line and returns
+      the populated ExeOutputDir (from `-E`) and DcuOutputDir (from `-NO`)
+- [ ] The same holds for at least one other non-Win32 compiler (e.g.
+      `dcclinux64.exe`)
+- [ ] Win32 (`dcc32.exe`) behavior is unchanged
+- [ ] An explicitly supplied `-ExeOutputDir` / `-DcuOutputDir` still round-trips
+      (echo-back path is untouched)
+- [ ] A dot-sourced Pester test drives `Get-BuildOutputDir` with synthetic
+      non-Win32 fixtures and asserts the parsed dirs (tests/pwsh)
+- [ ] All Pester tests pass

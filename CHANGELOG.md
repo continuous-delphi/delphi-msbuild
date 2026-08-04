@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.12] 2026-08-03
+
+- Fix `Get-BuildOutputDir` returning an empty `ExeOutputDir` / `DcuOutputDir` for
+  non-Win32 MSBuild targets (Win64, Linux64, macOS, etc.). The compiler-line filter
+  matched only `dcc32.exe`; it now matches any `dcc<target>.exe`, so the `-E` / `-NO`
+  output dirs are parsed on every platform. Explicitly supplied output dirs were
+  unaffected. [#27](https://github.com/continuous-delphi/delphi-msbuild/issues/27)
+
 ## [1.3.11] 2026-07-21
 
 - Hardened parameter passing, fixed regression in 1.2.6
