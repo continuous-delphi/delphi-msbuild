@@ -336,3 +336,72 @@ back the supplied `-ExeOutputDir` and never parses one from output).
 - [ ] A dot-sourced Pester test drives `Get-BuildOutputDir` with synthetic
       non-Win32 fixtures and asserts the parsed dirs (tests/pwsh)
 - [ ] All Pester tests pass
+---
+Title: Invoke-DelphiBuild returns empty ExeOutputDir for relative DCC_ExeOutput
+Issue: #28
+Status: closed
+Labels: bug, regression
+Body:
+## Problem
+
+`Invoke-DelphiBuild` (delphi-msbuild.ps1, scriptVersion 1.2.10) returns an EMPTY
+`ExeOutputDir` on the result object even for a fully successful build
+(`Success=True`, `ExitCode=0`, `Errors=0`). The other resolved-path fields
+(`MsbuildPath`, `UnitSearchPath`) also come back empty in the same result, while
+`RootDir` / `RsvarsPath` are populated.
+
+The compiled binary IS produced correctly -- it just is not reported. For a project
+whose `DCC_ExeOutput` is the IDE-default relative value `.\$(Platform)\$(Config)`,
+the exe lands at `<ProjectDir>\<Platform>\<Config>\<name>.exe`, but the returned
+`ExeOutputDir` is blank rather than that resolved absolute directory.
+
+## Repro
+
+Build any project with a relative `DCC_ExeOutput`:
+
+    $r = Invoke-DelphiBuild -ProjectFile 'projects\scanner\cli\radCodeScanner.dproj' `
+           -Platform Win64 -Configuration Release -BuildEngine MSBuild
+    $r.Success       # True
+    $r.ExeOutputDir  # '' (empty)  <-- BUG; exe actually at <ProjectDir>\Win64\Release\
+
+Observed against radCodeScanner's CLI project (relative
+`DCC_ExeOutput = .\$(Platform)\$(Config)`), Win64 Debug and Release: the exe is on
+disk, `ExeOutputDir` is empty both times.
+
+## Impact
+
+Downstream consumers rely on `ExeOutputDir` to locate the binary without scanning
+the filesystem -- the delphi-build docs explicitly sanction this ("Use ExeOutputDir
+to locate the compiled binary without searching the filesystem"). When it is empty,
+a `Join-Path $r.ExeOutputDir '<name>.exe'` throws
+"Cannot bind argument to parameter 'Path' because it is null."
+
+Concretely this currently breaks radCodeScanner CI: its `tools/validate-sarif.ps1`
+dropped its own manual Win64 ExeOutputDir workaround (radCodeScanner v0.1.12.0,
+commit 1e57393) specifically because this property was fixed at the time; the
+property is empty again, so `BuildTest.bat` is red. radCodeScanner is holding that
+workaround removal (no local re-add) pending this fix.
+
+## Likely cause (to confirm)
+
+The path-resolution that computes `ExeOutputDir` (and `MsbuildPath` /
+`UnitSearchPath`) appears to have regressed for the relative-`DCC_ExeOutput` case
+between the last known-good version and 1.2.10 -- possibly it only resolves an
+ABSOLUTE / explicitly-passed `-ExeOutputDir` and returns empty when the project's
+own relative output is used. Verify against the version that radCodeScanner
+v0.1.12.0 validated on.
+
+## Acceptance criteria
+
+- [ ] On a successful build of a project using a relative `DCC_ExeOutput`
+      (`.\$(Platform)\$(Config)`), `Invoke-DelphiBuild` returns a non-empty,
+      absolute `ExeOutputDir` equal to the directory that actually contains the
+      produced exe.
+- [ ] Holds for Win32 + Win64 and Debug + Release.
+- [ ] `MsbuildPath` / `UnitSearchPath` empties, if the same root cause, are fixed
+      too (or documented as separate).
+- [ ] A test/fixture covers the relative-`DCC_ExeOutput` case so this cannot
+      silently regress again.
+- [ ] Re-running radCodeScanner `BuildTest.bat` (its validate-sarif.ps1 unchanged)
+      goes green against the fixed module.
+
